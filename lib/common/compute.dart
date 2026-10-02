@@ -11,7 +11,7 @@ List<Group> computeSort({
   required String defaultTestUrl,
 }) {
   final delayStateResolver = switch (sortType) {
-    ProxiesSortType.delay => _RealSelectedProxyResolver(groups, selectedMap),
+    ProxiesSortType.delay => RealSelectedProxyResolver(groups, selectedMap),
     _ => null,
   };
   return groups.map((group) {
@@ -38,7 +38,7 @@ DelayState computeProxyDelayState({
   required Map<String, String> selectedMap,
   required DelayMap delayMap,
 }) {
-  final state = _RealSelectedProxyResolver(
+  final state = RealSelectedProxyResolver(
     groups,
     selectedMap,
   ).resolve(proxyName);
@@ -52,7 +52,7 @@ SelectedProxyState computeRealSelectedProxyState(
   required List<Group> groups,
   required Map<String, String> selectedMap,
 }) {
-  return _RealSelectedProxyResolver(groups, selectedMap).resolve(proxyName);
+  return RealSelectedProxyResolver(groups, selectedMap).resolve(proxyName);
 }
 
 List<SelectedProxyState> computeRealSelectedProxyStates(
@@ -60,7 +60,7 @@ List<SelectedProxyState> computeRealSelectedProxyStates(
   required List<Group> groups,
   required Map<String, String> selectedMap,
 }) {
-  final resolver = _RealSelectedProxyResolver(groups, selectedMap);
+  final resolver = RealSelectedProxyResolver(groups, selectedMap);
   return [for (final proxyName in proxyNames) resolver.resolve(proxyName)];
 }
 
@@ -82,8 +82,8 @@ DelayMap updateDelayMap(DelayMap delayMap, Iterable<Delay> delays) {
   return newDelayMap;
 }
 
-final class _RealSelectedProxyResolver {
-  _RealSelectedProxyResolver(this._groups, this._selectedMap) {
+final class RealSelectedProxyResolver {
+  RealSelectedProxyResolver(this._groups, this._selectedMap) {
     for (final group in _groups) {
       _groupsByName.putIfAbsent(group.name, () => group);
     }
@@ -122,7 +122,7 @@ final class _RealSelectedProxyResolver {
 
 List<Proxy> _sortOfDelay({
   required List<Group> groups,
-  required _RealSelectedProxyResolver delayStateResolver,
+  required RealSelectedProxyResolver delayStateResolver,
   required List<Proxy> proxies,
   required DelayMap delayMap,
   required String testUrl,
@@ -147,7 +147,7 @@ List<Proxy> _sortOfDelay({
 DelayState _computeProxyDelayState({
   required String proxyName,
   required String testUrl,
-  required _RealSelectedProxyResolver delayStateResolver,
+  required RealSelectedProxyResolver delayStateResolver,
   required DelayMap delayMap,
 }) {
   final state = delayStateResolver.resolve(proxyName);

@@ -1668,7 +1668,7 @@ final class RealSelectedProxyStateProvider
 }
 
 String _$realSelectedProxyStateHash() =>
-    r'42fa131419f0a26e30c4f5269bf020893b7f828c';
+    r'52b98903c6910d54dd0bc1282825f55524a1583c';
 
 final class RealSelectedProxyStateFamily extends $Family
     with $FunctionalFamilyOverride<SelectedProxyState, String> {
@@ -1687,6 +1687,54 @@ final class RealSelectedProxyStateFamily extends $Family
   @override
   String toString() => r'realSelectedProxyStateProvider';
 }
+
+@ProviderFor(realSelectedProxyResolver)
+const realSelectedProxyResolverProvider = RealSelectedProxyResolverProvider._();
+
+final class RealSelectedProxyResolverProvider
+    extends
+        $FunctionalProvider<
+          RealSelectedProxyResolver,
+          RealSelectedProxyResolver,
+          RealSelectedProxyResolver
+        >
+    with $Provider<RealSelectedProxyResolver> {
+  const RealSelectedProxyResolverProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'realSelectedProxyResolverProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$realSelectedProxyResolverHash();
+
+  @$internal
+  @override
+  $ProviderElement<RealSelectedProxyResolver> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  RealSelectedProxyResolver create(Ref ref) {
+    return realSelectedProxyResolver(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(RealSelectedProxyResolver value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<RealSelectedProxyResolver>(value),
+    );
+  }
+}
+
+String _$realSelectedProxyResolverHash() =>
+    r'310900c1ccaa34de9ea6c12ed7d2d1c0e25de0f9';
 
 @ProviderFor(getProxyName)
 const getProxyNameProvider = GetProxyNameFamily._();

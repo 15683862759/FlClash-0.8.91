@@ -501,13 +501,15 @@ int getProxiesColumns(Ref ref) {
 
 @riverpod
 SelectedProxyState realSelectedProxyState(Ref ref, String proxyName) {
+  final resolver = ref.watch(realSelectedProxyResolverProvider);
+  return resolver.resolve(proxyName);
+}
+
+@riverpod
+RealSelectedProxyResolver realSelectedProxyResolver(Ref ref) {
   final groups = ref.watch(groupsProvider);
   final selectedMap = ref.watch(selectedMapProvider);
-  return computeRealSelectedProxyState(
-    proxyName,
-    groups: groups,
-    selectedMap: selectedMap,
-  );
+  return RealSelectedProxyResolver(groups, selectedMap);
 }
 
 @riverpod
