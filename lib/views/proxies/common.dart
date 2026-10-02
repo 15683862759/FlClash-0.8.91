@@ -6,6 +6,8 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/state.dart';
 
+const delayTestConcurrencyLimit = 50;
+
 double get listHeaderHeight {
   final measure = globalState.measure;
   return 20 + measure.titleMediumHeight + 4 + measure.bodyMediumHeight + 2;
@@ -50,7 +52,7 @@ Future<void> runDelayTests(
   required String defaultTestUrl,
   required Future<Delay> Function(String url, String proxyName) getDelay,
   required void Function(List<Delay> delays) setDelays,
-  int concurrencyLimit = 100,
+  int concurrencyLimit = delayTestConcurrencyLimit,
   Duration resultBatchInterval = const Duration(milliseconds: 16),
 }) async {
   final uniqueStates = <(String, String), SelectedProxyState>{};
@@ -114,7 +116,7 @@ Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
     defaultTestUrl: defaultTestUrl,
     getDelay: coreController.getDelay,
     setDelays: appController.setDelays,
-    concurrencyLimit: 100,
+    concurrencyLimit: delayTestConcurrencyLimit,
   );
   appController.addSortNum();
 }

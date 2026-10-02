@@ -3,6 +3,32 @@ import 'package:fl_clash/views/proxies/common.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('delay tests match the core concurrency by default', () async {
+    const stateCount = 120;
+    var activeCount = 0;
+    var maxActiveCount = 0;
+    await runDelayTests(
+      List.generate(
+        stateCount,
+        (index) => SelectedProxyState(proxyName: 'node-$index'),
+      ),
+      defaultTestUrl: 'default-url',
+      getDelay: (url, name) async {
+        activeCount++;
+        if (activeCount > maxActiveCount) {
+          maxActiveCount = activeCount;
+        }
+        await Future<void>.delayed(Duration.zero);
+        activeCount--;
+        return Delay(url: url, name: name, value: 20);
+      },
+      setDelays: (_) {},
+      resultBatchInterval: Duration.zero,
+    );
+
+    expect(maxActiveCount, 50);
+  });
+
   test('delay tests mark each proxy loading only once', () async {
     final writes = <List<Delay>>[];
 
