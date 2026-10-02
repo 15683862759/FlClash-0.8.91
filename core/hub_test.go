@@ -20,10 +20,15 @@ const hubTestTimeout = 2 * time.Second
 type staticProxyProvider struct {
 	cp.ProxyProvider
 	proxies []C.Proxy
+	version uint32
 }
 
 func (p *staticProxyProvider) Proxies() []C.Proxy {
 	return p.proxies
+}
+
+func (p *staticProxyProvider) Version() uint32 {
+	return p.version
 }
 
 func TestProxyByNameUsesProviderWithoutAllocation(t *testing.T) {
@@ -58,6 +63,47 @@ func TestProxyByNameUsesProviderWithoutAllocation(t *testing.T) {
 		_ = proxyByName("provider-node")
 	}); allocs != 0 {
 		t.Fatalf("expected proxy lookup to allocate nothing, got %.0f allocations", allocs)
+	}
+}
+
+func TestProxyByNameRefreshesWhenProxiesChange(t *testing.T) {
+	oldProxy := adapter.NewProxy(
+		outbound.NewDirectWithOption(outbound.DirectOption{Name: "node"}),
+	)
+	newProxy := adapter.NewProxy(
+		outbound.NewDirectWithOption(outbound.DirectOption{Name: "node"}),
+	)
+	newBuiltinProxy := adapter.NewProxy(outbound.NewDirect())
+	provider := &staticProxyProvider{
+		proxies: []C.Proxy{oldProxy},
+		version: 1,
+	}
+	originalProxies := tunnel.Proxies()
+	originalProviders := tunnel.Providers()
+	t.Cleanup(func() {
+		tunnel.UpdateProxies(originalProxies, originalProviders)
+	})
+
+	tunnel.UpdateProxies(
+		map[string]C.Proxy{"DIRECT": adapter.NewProxy(outbound.NewDirect())},
+		map[string]cp.ProxyProvider{"provider": provider},
+	)
+	if got := proxyByName("node"); got != oldProxy {
+		t.Fatalf("expected initial provider proxy, got %#v", got)
+	}
+
+	provider.proxies = []C.Proxy{newProxy}
+	provider.version = 2
+	if got := proxyByName("node"); got != newProxy {
+		t.Fatalf("expected updated provider proxy, got %#v", got)
+	}
+
+	tunnel.UpdateProxies(
+		map[string]C.Proxy{"DIRECT": newBuiltinProxy},
+		map[string]cp.ProxyProvider{"provider": provider},
+	)
+	if got := proxyByName("DIRECT"); got != newBuiltinProxy {
+		t.Fatalf("expected replaced built-in proxy, got %#v", got)
 	}
 }
 
@@ -140,6 +186,10 @@ func TestHandleAsyncTestDelayUsesSingleBatchResultKey(t *testing.T) {
 		})
 	}
 
+	expectedUrls := map[string]string{
+		"node-a": "https://example.com/a",
+		"node-b": "https://example.com/b",
+	}
 	for range requests {
 		select {
 		case value := <-results:
@@ -149,6 +199,14 @@ func TestHandleAsyncTestDelayUsesSingleBatchResultKey(t *testing.T) {
 			}
 			if delay.Value != -1 {
 				t.Fatalf("expected missing proxy timeout, got %d", delay.Value)
+			}
+			if delay.Url != expectedUrls[delay.Name] {
+				t.Fatalf(
+					"expected delay result for %s to use %s, got %q",
+					delay.Name,
+					expectedUrls[delay.Name],
+					delay.Url,
+				)
 			}
 		case <-ctx.Done():
 			t.Fatal("timed out waiting for delay result")

@@ -21,10 +21,12 @@ import (
 	"github.com/metacubex/mihomo/tunnel/statistic"
 	"net"
 	"os"
+	"reflect"
 	"runtime"
 	"runtime/debug"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -36,17 +38,79 @@ var (
 
 const asyncTestDelayBatchKey = "async-test-delay"
 
-func proxyByName(name string) constant.Proxy {
-	for _, provider := range tunnel.Providers() {
-		for _, proxy := range provider.Proxies() {
-			if proxy.Name() == name {
-				return proxy
-			}
-		}
-	}
-	return tunnel.Proxies()[name]
+type proxyLookupCache struct {
+	mux              sync.RWMutex
+	builtins         map[string]constant.Proxy
+	providers        map[string]cp.ProxyProvider
+	providerVersions map[string]uint32
+	proxies          map[string]constant.Proxy
 }
 
+var proxyLookup proxyLookupCache
+
+func sameMapIdentity[K comparable, V any](left, right map[K]V) bool {
+	return reflect.ValueOf(left).Pointer() == reflect.ValueOf(right).Pointer()
+}
+
+func (c *proxyLookupCache) isCurrent(
+	builtins map[string]constant.Proxy,
+	providers map[string]cp.ProxyProvider,
+) bool {
+	if !sameMapIdentity(c.builtins, builtins) ||
+		!sameMapIdentity(c.providers, providers) {
+		return false
+	}
+	if len(c.providerVersions) != len(providers) {
+		return false
+	}
+	for name, provider := range providers {
+		version, exist := c.providerVersions[name]
+		if !exist || version != provider.Version() {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *proxyLookupCache) get(name string) constant.Proxy {
+	builtins := tunnel.Proxies()
+	providers := tunnel.Providers()
+
+	c.mux.RLock()
+	if c.isCurrent(builtins, providers) {
+		proxy := c.proxies[name]
+		c.mux.RUnlock()
+		return proxy
+	}
+	c.mux.RUnlock()
+
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	if c.isCurrent(builtins, providers) {
+		return c.proxies[name]
+	}
+
+	proxies := make(map[string]constant.Proxy, len(builtins))
+	for name, proxy := range builtins {
+		proxies[name] = proxy
+	}
+	providerVersions := make(map[string]uint32, len(providers))
+	for name, provider := range providers {
+		providerVersions[name] = provider.Version()
+		for _, proxy := range provider.Proxies() {
+			proxies[proxy.Name()] = proxy
+		}
+	}
+	c.builtins = builtins
+	c.providers = providers
+	c.providerVersions = providerVersions
+	c.proxies = proxies
+	return proxies[name]
+}
+
+func proxyByName(name string) constant.Proxy {
+	return proxyLookup.get(name)
+}
 func handleInitClash(paramsString string) bool {
 	runLock.Lock()
 	defer runLock.Unlock()
@@ -209,19 +273,19 @@ func handleAsyncTestDelay(paramsString string, fn func(string)) {
 			Name: params.ProxyName,
 		}
 
-		if proxy == nil {
-			delayData.Value = -1
-			data, _ := json.Marshal(delayData)
-			fn(string(data))
-			return false, nil
-		}
-
 		testUrl := constant.DefaultTestURL
 
 		if params.TestUrl != "" {
 			testUrl = params.TestUrl
 		}
 		delayData.Url = testUrl
+
+		if proxy == nil {
+			delayData.Value = -1
+			data, _ := json.Marshal(delayData)
+			fn(string(data))
+			return false, nil
+		}
 
 		delay, err := proxy.URLTest(ctx, testUrl, expectedStatus)
 		if err != nil || delay == 0 {
