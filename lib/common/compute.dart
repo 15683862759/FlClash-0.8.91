@@ -104,17 +104,17 @@ final class RealSelectedProxyResolver {
   SelectedProxyState _resolve(SelectedProxyState state) {
     var currentState = state;
     while (currentState.proxyName.isNotEmpty) {
-      final newState = currentState.copyWith(group: true);
-      final group = _groupsByName[newState.proxyName];
-      if (group == null) return newState;
+      final group = _groupsByName[currentState.proxyName];
+      if (group == null) return currentState;
       final currentSelectedName = group.getCurrentSelectedName(
-        _selectedMap[newState.proxyName] ?? '',
+        _selectedMap[currentState.proxyName] ?? '',
       );
-      if (currentSelectedName.isEmpty) return newState;
-      currentState = newState.copyWith(
+      currentState = currentState.copyWith(
+        group: true,
         proxyName: currentSelectedName,
         testUrl: group.testUrl,
       );
+      if (currentSelectedName.isEmpty) return currentState;
     }
     return currentState;
   }

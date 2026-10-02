@@ -138,8 +138,36 @@ void main() {
     expect(states[0].group, isTrue);
     expect(states[0].testUrl, 'https://example.com/group-b');
     expect(states[1].proxyName, 'node-a');
-    expect(states[1].group, isTrue);
+    expect(states[1].group, isFalse);
     expect(states[1].testUrl, isNull);
+  });
+
+  test('delay sorting preserves whether each proxy is a group', () {
+    const defaultTestUrl = 'https://example.com/default';
+    final groups = [
+      Group(
+        type: GroupType.Selector,
+        name: 'root',
+        all: const [
+          Proxy(name: 'node-b', type: 'Selector'),
+          Proxy(name: 'group-a', type: 'Selector'),
+        ],
+      ),
+      const Group(type: GroupType.Selector, name: 'group-a'),
+    ];
+    final delayMap = {
+      defaultTestUrl: {'node-a': 10, 'node-b': 10},
+    };
+
+    final result = computeSort(
+      groups: groups,
+      sortType: ProxiesSortType.delay,
+      delayMap: delayMap,
+      selectedMap: const {'group-a': 'node-a'},
+      defaultTestUrl: defaultTestUrl,
+    );
+
+    expect(result.first.all.map((proxy) => proxy.name), ['group-a', 'node-b']);
   });
 
   test('delay map updates batch changes without mutating source', () {
