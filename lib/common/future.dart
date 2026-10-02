@@ -44,11 +44,10 @@ extension FutureExt<T> on Future<T> {
   }) {
     final realTimeout = timeout ?? const Duration(minutes: 3);
     var didTimeout = false;
-    final lastCallTimer = Timer(realTimeout + commonDuration, () {
-      if (onLast != null) {
-        onLast();
-      }
-    });
+    Timer? lastCallTimer;
+    if (onLast != null) {
+      lastCallTimer = Timer(realTimeout + commonDuration, onLast);
+    }
     return this
         .timeout(
           realTimeout,
@@ -64,13 +63,13 @@ extension FutureExt<T> on Future<T> {
         .then(
           (value) {
             if (!didTimeout) {
-              lastCallTimer.cancel();
+              lastCallTimer?.cancel();
             }
             return value;
           },
           onError: (Object error) {
             if (!didTimeout) {
-              lastCallTimer.cancel();
+              lastCallTimer?.cancel();
             }
             throw error;
           },
