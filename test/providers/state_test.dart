@@ -53,6 +53,39 @@ class _CountingProxyList extends ListBase<Proxy> {
 }
 
 void main() {
+  test('proxy descriptions reuse one group index', () {
+    const groupCount = 64;
+    final sourceGroups = <Group>[];
+    final selectedMap = <String, String>{};
+    for (var index = 0; index < groupCount; index++) {
+      sourceGroups.add(Group(type: GroupType.Selector, name: 'group-$index'));
+      selectedMap['group-$index'] = 'node-$index';
+    }
+    final groups = _CountingGroupList(sourceGroups);
+
+    final container = ProviderContainer(
+      overrides: [
+        groupsProvider.overrideWithValue(groups),
+        selectedMapProvider.overrideWith((_) => selectedMap),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final subscriptions = [
+      for (var index = 0; index < groupCount; index++)
+        container.listen(
+          getProxyDescProvider(Proxy(name: 'group-$index', type: 'Selector')),
+          (_, _) {},
+        ),
+    ];
+
+    expect(
+      subscriptions.map((subscription) => subscription.read()),
+      equals(List.generate(groupCount, (index) => 'Selector(node-$index)')),
+    );
+    expect(groups.elementReadCount, lessThan(groupCount * 3));
+  });
+
   test('real selected proxy states share the group resolver', () {
     const proxyCount = 64;
     final sourceGroups = <Group>[];

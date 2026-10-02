@@ -518,6 +518,15 @@ RealSelectedProxyResolver realSelectedProxyResolver(Ref ref) {
 }
 
 @riverpod
+Map<String, Group> groupsByName(Ref ref) {
+  final groupsByName = <String, Group>{};
+  for (final group in ref.watch(groupsProvider)) {
+    groupsByName.putIfAbsent(group.name, () => group);
+  }
+  return groupsByName;
+}
+
+@riverpod
 String? getProxyName(Ref ref, String groupName) {
   final proxyName = ref.watch(
     selectedMapProvider.select((state) => state[groupName]),
@@ -536,13 +545,14 @@ String? getSelectedProxyName(Ref ref, String groupName) {
 
 @riverpod
 String getProxyDesc(Ref ref, Proxy proxy) {
-  final groupTypeNamesList = GroupType.values.map((e) => e.name).toList();
-  if (!groupTypeNamesList.contains(proxy.type)) {
+  final groupType = GroupTypeExtension.getGroupType(proxy.type);
+  if (groupType == null) {
     return proxy.type;
   } else {
-    final groups = ref.watch(groupsProvider);
-    final index = groups.indexWhere((element) => element.name == proxy.name);
-    if (index == -1) return proxy.type;
+    final group = ref.watch(
+      groupsByNameProvider.select((state) => state[proxy.name]),
+    );
+    if (group == null) return proxy.type;
     final state = ref.watch(realSelectedProxyStateProvider(proxy.name));
     return "${proxy.type}(${state.proxyName.isNotEmpty ? state.proxyName : '*'})";
   }

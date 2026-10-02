@@ -90,7 +90,7 @@ final class CurrentGroupsStateProvider
 }
 
 String _$currentGroupsStateHash() =>
-    r'dbf8f02606a31486c99d7b89d19914cd5a1fc496';
+    r'c686e8234b144fc0ccb908b7af825bd3fec72749';
 
 @ProviderFor(navigationItemsState)
 const navigationItemsStateProvider = NavigationItemsStateProvider._();
@@ -1736,6 +1736,53 @@ final class RealSelectedProxyResolverProvider
 String _$realSelectedProxyResolverHash() =>
     r'310900c1ccaa34de9ea6c12ed7d2d1c0e25de0f9';
 
+@ProviderFor(groupsByName)
+const groupsByNameProvider = GroupsByNameProvider._();
+
+final class GroupsByNameProvider
+    extends
+        $FunctionalProvider<
+          Map<String, Group>,
+          Map<String, Group>,
+          Map<String, Group>
+        >
+    with $Provider<Map<String, Group>> {
+  const GroupsByNameProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'groupsByNameProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$groupsByNameHash();
+
+  @$internal
+  @override
+  $ProviderElement<Map<String, Group>> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  Map<String, Group> create(Ref ref) {
+    return groupsByName(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Map<String, Group> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Map<String, Group>>(value),
+    );
+  }
+}
+
+String _$groupsByNameHash() => r'218bfee634e311128700eace395e577f025eb88e';
+
 @ProviderFor(getProxyName)
 const getProxyNameProvider = GetProxyNameFamily._();
 
@@ -1948,7 +1995,7 @@ final class GetProxyDescProvider
   }
 }
 
-String _$getProxyDescHash() => r'4579b55bf7e9fbcfdf91b91619bd0320c585f23d';
+String _$getProxyDescHash() => r'9c05e6c0dbf6ab646c122a2dd08627935864ea6a';
 
 final class GetProxyDescFamily extends $Family
     with $FunctionalFamilyOverride<String, Proxy> {
