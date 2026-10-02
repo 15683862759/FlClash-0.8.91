@@ -207,14 +207,6 @@ class AppController {
     final index = hotKeyActions.indexWhere(
       (item) => item.action == hotKeyAction.action,
     );
-    if (index == -1) {
-      _ref.read(hotKeyActionsProvider.notifier).value = List.from(hotKeyActions)
-        ..add(hotKeyAction);
-    } else {
-      _ref.read(hotKeyActionsProvider.notifier).value = List.from(hotKeyActions)
-        ..[index] = hotKeyAction;
-    }
-
     _ref.read(hotKeyActionsProvider.notifier).value = index == -1
         ? (List.from(hotKeyActions)..add(hotKeyAction))
         : (List.from(hotKeyActions)..[index] = hotKeyAction);
