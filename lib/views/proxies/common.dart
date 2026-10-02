@@ -54,6 +54,15 @@ Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
     groups: groups,
     selectedMap: selectedMap,
   );
+  appController.setDelays([
+    for (final state in proxyStates)
+      if (state.proxyName.isNotEmpty)
+        Delay(
+          url: state.testUrl.getSafeValue(defaultTestUrl),
+          name: state.proxyName,
+          value: 0,
+        ),
+  ]);
 
   await forEachBounded(proxyStates, (state) async {
     final url = state.testUrl.getSafeValue(defaultTestUrl);

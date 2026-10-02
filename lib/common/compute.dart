@@ -64,6 +64,24 @@ List<SelectedProxyState> computeRealSelectedProxyStates(
   return [for (final proxyName in proxyNames) resolver.resolve(proxyName)];
 }
 
+DelayMap updateDelayMap(DelayMap delayMap, Iterable<Delay> delays) {
+  var newDelayMap = delayMap;
+  final changedUrls = <String>{};
+  for (final delay in delays) {
+    if (delayMap[delay.url]?[delay.name] == delay.value) {
+      continue;
+    }
+    if (identical(newDelayMap, delayMap)) {
+      newDelayMap = Map.from(delayMap);
+    }
+    if (changedUrls.add(delay.url)) {
+      newDelayMap[delay.url] = Map.from(delayMap[delay.url] ?? {});
+    }
+    newDelayMap[delay.url]![delay.name] = delay.value;
+  }
+  return newDelayMap;
+}
+
 final class _RealSelectedProxyResolver {
   _RealSelectedProxyResolver(this._groups, this._selectedMap) {
     for (final group in _groups) {

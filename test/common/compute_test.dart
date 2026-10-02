@@ -133,4 +133,46 @@ void main() {
     expect(states[1].group, isTrue);
     expect(states[1].testUrl, isNull);
   });
+
+  test('delay map updates batch changes without mutating source', () {
+    final source = {
+      'https://example.com/a': {'existing': 1},
+      'https://example.com/b': {'kept': 2},
+    };
+
+    final result = updateDelayMap(source, [
+      const Delay(url: 'https://example.com/a', name: 'existing', value: 0),
+      const Delay(url: 'https://example.com/a', name: 'node-a', value: 10),
+      const Delay(url: 'https://example.com/new', name: 'node-b', value: 20),
+    ]);
+
+    expect(result, {
+      'https://example.com/a': {'existing': 0, 'node-a': 10},
+      'https://example.com/b': {'kept': 2},
+      'https://example.com/new': {'node-b': 20},
+    });
+    expect(source, {
+      'https://example.com/a': {'existing': 1},
+      'https://example.com/b': {'kept': 2},
+    });
+    expect(
+      identical(
+        result['https://example.com/b'],
+        source['https://example.com/b'],
+      ),
+      isTrue,
+    );
+  });
+
+  test('delay map update returns current state without changes', () {
+    final source = {
+      'https://example.com/a': {'node-a': 10},
+    };
+
+    final result = updateDelayMap(source, [
+      const Delay(url: 'https://example.com/a', name: 'node-a', value: 10),
+    ]);
+
+    expect(identical(result, source), isTrue);
+  });
 }
