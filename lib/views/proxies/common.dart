@@ -47,7 +47,7 @@ Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
   final appController = globalState.appController;
   final proxyNames = proxies.map((proxy) => proxy.name).toSet().toList();
 
-  final delayProxies = proxyNames.map<Future>((proxyName) async {
+  await forEachBounded(proxyNames, (proxyName) async {
     final groups = globalState.appState.groups;
     final selectedMap = globalState.config.currentProfile?.selectedMap ?? {};
     final state = computeRealSelectedProxyState(
@@ -64,12 +64,7 @@ Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
     }
     appController.setDelay(Delay(url: url, name: name, value: 0));
     appController.setDelay(await coreController.getDelay(url, name));
-  }).toList();
-
-  final batchesDelayProxies = delayProxies.batch(100);
-  for (final batchDelayProxies in batchesDelayProxies) {
-    await Future.wait(batchDelayProxies);
-  }
+  }, concurrencyLimit: 100);
   appController.addSortNum();
 }
 

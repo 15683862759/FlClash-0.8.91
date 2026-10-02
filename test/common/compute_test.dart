@@ -1,0 +1,110 @@
+import 'dart:collection';
+
+import 'package:fl_clash/common/compute.dart';
+import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/models/models.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+class _CountingSelectedMap extends MapBase<String, String> {
+  final _values = <String, String>{};
+  int readCount = 0;
+
+  @override
+  String? operator [](Object? key) {
+    readCount++;
+    return _values[key];
+  }
+
+  @override
+  void operator []=(String key, String value) => _values[key] = value;
+
+  @override
+  void clear() => _values.clear();
+
+  @override
+  Iterable<String> get keys => _values.keys;
+
+  @override
+  int get length => _values.length;
+
+  @override
+  String? remove(Object? key) => _values.remove(key);
+}
+
+void main() {
+  test('delay sorting orders proxies by resolved delay', () {
+    const defaultTestUrl = 'https://example.com/default';
+    final groups = [
+      Group(
+        type: GroupType.Selector,
+        name: 'root',
+        all: const [
+          Proxy(name: 'group-c', type: 'Selector'),
+          Proxy(name: 'group-a', type: 'Selector'),
+          Proxy(name: 'group-b', type: 'Selector'),
+        ],
+      ),
+      const Group(type: GroupType.Selector, name: 'group-a'),
+      const Group(type: GroupType.Selector, name: 'group-b'),
+      const Group(type: GroupType.Selector, name: 'group-c'),
+    ];
+    final selectedMap = {
+      'group-a': 'node-a',
+      'group-b': 'node-b',
+      'group-c': 'node-c',
+    };
+    final delayMap = {
+      defaultTestUrl: {'node-a': 20, 'node-b': 10, 'node-c': 30},
+    };
+
+    final result = computeSort(
+      groups: groups,
+      sortType: ProxiesSortType.delay,
+      delayMap: delayMap,
+      selectedMap: selectedMap,
+      defaultTestUrl: defaultTestUrl,
+    );
+
+    expect(result.first.all.map((proxy) => proxy.name), [
+      'group-b',
+      'group-a',
+      'group-c',
+    ]);
+  });
+
+  test('delay sorting resolves each proxy only once', () {
+    const proxyCount = 2048;
+    const defaultTestUrl = 'https://example.com/default';
+    final selectedMap = _CountingSelectedMap();
+    final delayMap = <String, Map<String, int?>>{};
+    final groups = [
+      Group(
+        type: GroupType.Selector,
+        name: 'root',
+        all: List.generate(
+          proxyCount,
+          (index) => Proxy(name: 'group-$index', type: 'Selector'),
+        ),
+      ),
+      for (var index = 0; index < proxyCount; index++)
+        Group(type: GroupType.Selector, name: 'group-$index'),
+    ];
+    for (var index = 0; index < proxyCount; index++) {
+      selectedMap['group-$index'] = 'node-$index';
+    }
+    delayMap[defaultTestUrl] = {
+      for (var index = 0; index < proxyCount; index++)
+        'node-$index': (index % 4) + 1,
+    };
+
+    computeSort(
+      groups: groups,
+      sortType: ProxiesSortType.delay,
+      delayMap: delayMap,
+      selectedMap: selectedMap,
+      defaultTestUrl: defaultTestUrl,
+    );
+
+    expect(selectedMap.readCount, lessThan(proxyCount * 2));
+  });
+}
