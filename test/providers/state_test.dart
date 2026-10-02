@@ -52,6 +52,17 @@ class _CountingProxyList extends ListBase<Proxy> {
   set length(int value) => _proxies.length = value;
 }
 
+class _MutableSortNum extends SortNum {
+  @override
+  int build() => 0;
+
+  @override
+  void onUpdate(int value) {}
+
+  @override
+  int add() => state++;
+}
+
 void main() {
   test('proxy descriptions reuse one group index', () {
     const groupCount = 64;
@@ -236,5 +247,43 @@ void main() {
     expect(group.now, isEmpty);
     expect(group.all[0].now, isEmpty);
     expect(group.all[1].now, isNull);
+  });
+
+  test('group refresh signal follows the counter during delay sorting', () {
+    final container = ProviderContainer(
+      overrides: [
+        currentPageLabelProvider.overrideWithValue(PageLabel.proxies),
+        proxiesStyleSettingProvider.overrideWithValue(
+          const ProxiesStyle(sortType: ProxiesSortType.delay),
+        ),
+        sortNumProvider.overrideWith(_MutableSortNum.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final before = container.read(needUpdateGroupsProvider);
+    container.read(sortNumProvider.notifier).add();
+    final after = container.read(needUpdateGroupsProvider);
+
+    expect(after.b, before.b + 1);
+  });
+
+  test('group refresh signal ignores delay counter without delay sorting', () {
+    final container = ProviderContainer(
+      overrides: [
+        currentPageLabelProvider.overrideWithValue(PageLabel.proxies),
+        proxiesStyleSettingProvider.overrideWithValue(
+          const ProxiesStyle(sortType: ProxiesSortType.none),
+        ),
+        sortNumProvider.overrideWith(_MutableSortNum.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final before = container.read(needUpdateGroupsProvider);
+    container.read(sortNumProvider.notifier).add();
+    final after = container.read(needUpdateGroupsProvider);
+
+    expect(after, before);
   });
 }

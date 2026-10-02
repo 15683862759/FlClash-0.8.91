@@ -669,7 +669,8 @@ VM3<bool, int, ProxiesSortType> needUpdateGroups(Ref ref) {
   final sortType = ref.watch(
     proxiesStyleSettingProvider.select((state) => state.sortType),
   );
-  return VM3(a: isProxies, b: sortNum, c: sortType);
+  final needsDelaySortRefresh = isProxies && sortType == ProxiesSortType.delay;
+  return VM3(a: isProxies, b: needsDelaySortRefresh ? sortNum : 0, c: sortType);
 }
 
 @riverpod
