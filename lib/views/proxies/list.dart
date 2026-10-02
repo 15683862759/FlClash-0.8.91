@@ -13,7 +13,122 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'card.dart';
 import 'common.dart';
 
-typedef GroupNameProxiesMap = Map<String, List<Proxy>>;
+enum ProxiesListItemKind {
+  header,
+  headerSpacing,
+  proxyRow,
+  rowSpacing,
+  tailSpacing,
+}
+
+class ProxiesListItem {
+  const ProxiesListItem({
+    required this.kind,
+    required this.groupIndex,
+    this.proxyStartIndex = 0,
+    this.proxyEndIndex = 0,
+  });
+
+  final ProxiesListItemKind kind;
+  final int groupIndex;
+  final int proxyStartIndex;
+  final int proxyEndIndex;
+}
+
+class ProxiesListLayout {
+  const ProxiesListLayout({
+    required this.items,
+    required this.extents,
+    required this.headerIndexes,
+    required this.headerOffsets,
+  });
+
+  final List<ProxiesListItem> items;
+  final List<double> extents;
+  final List<int> headerIndexes;
+  final List<double> headerOffsets;
+}
+
+ProxiesListLayout computeProxiesListLayout({
+  required List<Group> groups,
+  required Set<String> currentUnfoldSet,
+  required int columns,
+  required double headerHeight,
+  required double proxyItemHeight,
+}) {
+  final effectiveColumns = columns < 1 ? 1 : columns;
+  final items = <ProxiesListItem>[];
+  final extents = <double>[];
+  final headerIndexes = <int>[];
+  final headerOffsets = <double>[];
+  var currentOffset = 0.0;
+
+  void addItem(ProxiesListItem item, double extent) {
+    items.add(item);
+    extents.add(extent);
+    currentOffset += extent;
+  }
+
+  for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+    final group = groups[groupIndex];
+    headerIndexes.add(items.length);
+    headerOffsets.add(currentOffset);
+    addItem(
+      ProxiesListItem(kind: ProxiesListItemKind.header, groupIndex: groupIndex),
+      headerHeight,
+    );
+    addItem(
+      ProxiesListItem(
+        kind: ProxiesListItemKind.headerSpacing,
+        groupIndex: groupIndex,
+      ),
+      8,
+    );
+
+    if (!currentUnfoldSet.contains(group.name)) {
+      continue;
+    }
+
+    final proxies = group.all;
+    final rowCount = (proxies.length / effectiveColumns).ceil();
+    for (var rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+      if (rowIndex > 0) {
+        addItem(
+          ProxiesListItem(
+            kind: ProxiesListItemKind.rowSpacing,
+            groupIndex: groupIndex,
+          ),
+          8,
+        );
+      }
+      final startIndex = rowIndex * effectiveColumns;
+      final endIndex = min(startIndex + effectiveColumns, proxies.length);
+      addItem(
+        ProxiesListItem(
+          kind: ProxiesListItemKind.proxyRow,
+          groupIndex: groupIndex,
+          proxyStartIndex: startIndex,
+          proxyEndIndex: endIndex,
+        ),
+        proxyItemHeight,
+      );
+    }
+    addItem(
+      ProxiesListItem(
+        kind: ProxiesListItemKind.tailSpacing,
+        groupIndex: groupIndex,
+      ),
+      8,
+    );
+  }
+
+  return ProxiesListLayout(
+    items: items,
+    extents: extents,
+    headerIndexes: headerIndexes,
+    headerOffsets: headerOffsets,
+  );
+}
 
 class ProxiesListView extends StatefulWidget {
   const ProxiesListView({super.key});
@@ -64,14 +179,6 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     );
   }
 
-  double _getListItemHeight(Type type, ProxyCardType proxyCardType) {
-    return switch (type) {
-      const (SizedBox) => 8,
-      const (ListHeader) => listHeaderHeight,
-      Type() => getItemHeight(proxyCardType),
-    };
-  }
-
   @override
   void dispose() {
     _headerStateNotifier.dispose();
@@ -94,81 +201,68 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     });
   }
 
-  List<double> _getItemHeightList(
-    List<Widget> items,
-    ProxyCardType proxyCardType,
-  ) {
-    final itemHeightList = <double>[];
-    List<double> headerOffset = [];
-    double currentHeight = 0;
-    for (final item in items) {
-      if (item.runtimeType == ListHeader) {
-        headerOffset.add(currentHeight);
-      }
-      final itemHeight = _getListItemHeight(item.runtimeType, proxyCardType);
-      itemHeightList.add(itemHeight);
-      currentHeight = currentHeight + itemHeight;
-    }
-    _headerOffset = headerOffset;
-    return itemHeightList;
-  }
-
-  List<Widget> _buildItems(
+  Widget _buildItem(
     WidgetRef ref, {
+    required ProxiesListLayout layout,
     required List<Group> groups,
-    required int columns,
     required Set<String> currentUnfoldSet,
     required ProxyCardType cardType,
+    required int columns,
+    required int index,
   }) {
-    final items = <Widget>[];
-    for (final group in groups) {
-      final groupName = group.name;
-      final isExpand = currentUnfoldSet.contains(groupName);
-      items.addAll([
-        ListHeader(
-          onScrollToSelected: _scrollToGroupSelected,
-          isExpand: isExpand,
-          group: group,
-          onChange: (String groupName) {
-            _handleChange(currentUnfoldSet, groupName);
-          },
-        ),
-        const SizedBox(height: 8),
-      ]);
-      if (isExpand) {
-        final proxies = group.all;
-        final chunks = proxies.chunks(columns);
-        final rows = chunks
-            .map<Widget>((proxies) {
-              final children = proxies
-                  .map<Widget>(
-                    (proxy) => Flexible(
-                      child: SizedBox(
-                        height: getItemHeight(cardType),
-                        child: ProxyCard(
-                          testUrl: group.testUrl,
-                          type: cardType,
-                          groupType: group.type,
-                          key: ValueKey('$groupName.${proxy.name}'),
-                          proxy: proxy,
-                          groupName: groupName,
-                        ),
-                      ),
-                    ),
-                  )
-                  .fill(
-                    columns,
-                    filler: (_) => const Flexible(child: SizedBox()),
-                  )
-                  .separated(const SizedBox(width: 8));
+    final item = layout.items[index];
+    final group = groups[item.groupIndex];
+    final groupName = group.name;
+    return switch (item.kind) {
+      ProxiesListItemKind.header => ListHeader(
+        onScrollToSelected: _scrollToGroupSelected,
+        isExpand: currentUnfoldSet.contains(groupName),
+        group: group,
+        onChange: (String groupName) {
+          _handleChange(currentUnfoldSet, groupName);
+        },
+      ),
+      ProxiesListItemKind.proxyRow => _buildProxyRow(
+        group: group,
+        start: item.proxyStartIndex,
+        end: item.proxyEndIndex,
+        columns: columns,
+        cardType: cardType,
+      ),
+      ProxiesListItemKind.headerSpacing ||
+      ProxiesListItemKind.rowSpacing ||
+      ProxiesListItemKind.tailSpacing => const SizedBox(height: 8),
+    };
+  }
 
-              return Row(children: children.toList());
-            })
-            .separated(const SizedBox(height: 8));
-        items.addAll([...rows, const SizedBox(height: 8)]);
-      }
-    }
-    return items;
+  Widget _buildProxyRow({
+    required Group group,
+    required int start,
+    required int end,
+    required int columns,
+    required ProxyCardType cardType,
+  }) {
+    final groupName = group.name;
+    final proxies = group.all.sublist(start, end);
+    final children = proxies
+        .map<Widget>(
+          (proxy) => Flexible(
+            child: SizedBox(
+              height: getItemHeight(cardType),
+              child: ProxyCard(
+                testUrl: group.testUrl,
+                type: cardType,
+                groupType: group.type,
+                key: ValueKey('$groupName.${proxy.name}'),
+                proxy: proxy,
+                groupName: groupName,
+              ),
+            ),
+          ),
+        )
+        .fill(columns, filler: (_) => const Flexible(child: SizedBox()))
+        .separated(const SizedBox(width: 8));
+    return Row(children: children.toList());
   }
 
   Widget _buildHeader(
@@ -294,14 +388,14 @@ class _ProxiesListViewState extends State<ProxiesListView> {
             label: appLocalizations.nullTip(appLocalizations.proxies),
           );
         }
-        final items = _buildItems(
-          ref,
+        final layout = computeProxiesListLayout(
           groups: state.groups,
           currentUnfoldSet: state.currentUnfoldSet,
           columns: state.columns,
-          cardType: state.proxyCardType,
+          headerHeight: listHeaderHeight,
+          proxyItemHeight: getItemHeight(state.proxyCardType),
         );
-        final itemsOffset = _getItemHeightList(items, state.proxyCardType);
+        _headerOffset = layout.headerOffsets;
         return CommonScrollBar(
           controller: _controller,
           thumbVisibility: true,
@@ -316,11 +410,19 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                     padding: const EdgeInsets.all(16),
                     controller: _controller,
                     itemExtentBuilder: (index, _) {
-                      return itemsOffset[index];
+                      return layout.extents[index];
                     },
-                    itemCount: items.length,
+                    itemCount: layout.items.length,
                     itemBuilder: (_, index) {
-                      return items[index];
+                      return _buildItem(
+                        ref,
+                        layout: layout,
+                        groups: state.groups,
+                        currentUnfoldSet: state.currentUnfoldSet,
+                        cardType: state.proxyCardType,
+                        columns: state.columns,
+                        index: index,
+                      );
                     },
                   ),
                 ),
