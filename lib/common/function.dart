@@ -35,7 +35,7 @@ class ProxyChangeDebouncer {
   final Duration duration;
   final Map<String, String> _pendingChanges = {};
   Timer? _timer;
-  bool _isFlushing = false;
+  Future<void>? _activeFlush;
 
   ProxyChangeDebouncer({
     required FutureOr<void> Function(String groupName, String proxyName)
@@ -47,6 +47,14 @@ class ProxyChangeDebouncer {
 
   void call(String groupName, String proxyName) {
     _pendingChanges[groupName] = proxyName;
+    if (_activeFlush != null || _timer != null) {
+      _scheduleFlush();
+      return;
+    }
+    unawaited(_flush());
+  }
+
+  void _scheduleFlush() {
     _timer?.cancel();
     _timer = Timer(duration, () {
       _timer = null;
@@ -55,16 +63,35 @@ class ProxyChangeDebouncer {
   }
 
   Future<void> _flush() async {
-    if (_isFlushing || _pendingChanges.isEmpty) {
+    final activeFlush = _activeFlush;
+    if (activeFlush != null) {
+      await activeFlush;
+      if (_pendingChanges.isNotEmpty) {
+        await _flush();
+      }
       return;
     }
-    _isFlushing = true;
+    if (_pendingChanges.isEmpty) {
+      return;
+    }
+
+    final flush = _runFlush();
+    _activeFlush = flush;
+    try {
+      await flush;
+    } finally {
+      if (identical(_activeFlush, flush)) {
+        _activeFlush = null;
+      }
+    }
+  }
+
+  Future<void> _runFlush() async {
     final changes = Map.of(_pendingChanges);
     _pendingChanges.clear();
     for (final entry in changes.entries) {
       await _onChange(entry.key, entry.value);
     }
-    _isFlushing = false;
     _onBatchComplete?.call();
   }
 
