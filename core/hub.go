@@ -36,6 +36,17 @@ var (
 
 const asyncTestDelayBatchKey = "async-test-delay"
 
+func proxyByName(name string) constant.Proxy {
+	for _, provider := range tunnel.Providers() {
+		for _, proxy := range provider.Proxies() {
+			if proxy.Name() == name {
+				return proxy
+			}
+		}
+	}
+	return tunnel.Proxies()[name]
+}
+
 func handleInitClash(paramsString string) bool {
 	runLock.Lock()
 	defer runLock.Unlock()
@@ -117,9 +128,8 @@ func handleChangeProxy(data string, fn func(string string)) {
 		}
 		groupName := *params.GroupName
 		proxyName := *params.ProxyName
-		proxies := tunnel.ProxiesWithProviders()
-		group, ok := proxies[groupName]
-		if !ok {
+		group := proxyByName(groupName)
+		if group == nil {
 			fn("Not found group")
 			return
 		}
@@ -194,9 +204,7 @@ func handleAsyncTestDelay(paramsString string, fn func(string)) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(params.Timeout))
 		defer cancel()
 
-		proxies := tunnel.ProxiesWithProviders()
-		proxy := proxies[params.ProxyName]
-
+		proxy := proxyByName(params.ProxyName)
 		delayData := &Delay{
 			Name: params.ProxyName,
 		}
