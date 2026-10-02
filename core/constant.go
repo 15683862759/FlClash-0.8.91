@@ -99,6 +99,7 @@ const (
 	crashMethod                    Method = "crash"
 	setupConfigMethod              Method = "setupConfig"
 	getConfigMethod                Method = "getConfig"
+	getProxiesSnapshotMethod       Method = "getProxiesSnapshot"
 	deleteFile                     Method = "deleteFile"
 )
 

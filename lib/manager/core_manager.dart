@@ -62,9 +62,9 @@ class _CoreContainerState extends ConsumerState<CoreManager>
     super.onDelay(delay);
     final appController = globalState.appController;
     appController.setDelay(delay);
-    debouncer.call(FunctionTag.updateDelay, () async {
+    throttler.call(FunctionTag.updateDelay, () async {
       appController.updateGroupsDebounce();
-    }, duration: const Duration(milliseconds: 5000));
+    }, duration: const Duration(seconds: 3));
   }
 
   @override

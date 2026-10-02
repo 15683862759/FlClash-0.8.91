@@ -30,6 +30,8 @@ mixin CoreInterface {
 
   Future<Map> getProxies();
 
+  Future<Map> getProxiesSnapshot();
+
   Future<String> changeProxy(ChangeProxyParams changeProxyParams);
 
   Future<bool> startListener();
@@ -187,6 +189,12 @@ abstract class CoreHandlerInterface with CoreInterface {
   Future<Map> getProxies() async {
     final map = await _invoke<Map>(method: ActionMethod.getProxies);
     return map ?? {};
+  }
+
+  @override
+  Future<Map> getProxiesSnapshot() async {
+    final map = await _invoke<Map>(method: ActionMethod.getProxiesSnapshot);
+    return map ?? const {};
   }
 
   @override

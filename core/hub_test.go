@@ -9,6 +9,7 @@ import (
 
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/adapter/outbound"
+	"github.com/metacubex/mihomo/adapter/outboundgroup"
 	"github.com/metacubex/mihomo/common/batch"
 	C "github.com/metacubex/mihomo/constant"
 	cp "github.com/metacubex/mihomo/constant/provider"
@@ -104,6 +105,87 @@ func TestProxyByNameRefreshesWhenProxiesChange(t *testing.T) {
 	)
 	if got := proxyByName("DIRECT"); got != newBuiltinProxy {
 		t.Fatalf("expected replaced built-in proxy, got %#v", got)
+	}
+}
+
+func TestHandleGetProxiesSnapshotReusesUnchangedStructure(t *testing.T) {
+	providerProxy := adapter.NewProxy(
+		outbound.NewDirectWithOption(outbound.DirectOption{Name: "provider-node"}),
+	)
+	provider := &staticProxyProvider{
+		proxies: []C.Proxy{providerProxy},
+		version: 1,
+	}
+	groupProxy := outboundgroup.NewSelector(
+		&outboundgroup.GroupCommonOption{Name: "GLOBAL"},
+		[]cp.ProxyProvider{provider},
+	)
+	originalProxies := tunnel.Proxies()
+	originalProviders := tunnel.Providers()
+	t.Cleanup(func() {
+		tunnel.UpdateProxies(originalProxies, originalProviders)
+		proxySnapshotCache = proxySnapshotCacheValue{}
+	})
+
+	tunnel.UpdateProxies(
+		map[string]C.Proxy{"GLOBAL": adapter.NewProxy(groupProxy)},
+		map[string]cp.ProxyProvider{"provider": provider},
+	)
+	proxySnapshotCache = proxySnapshotCacheValue{}
+
+	first := handleGetProxiesSnapshot()
+	if first.Signature == 0 {
+		t.Fatal("expected first snapshot to have a signature")
+	}
+	if len(first.Proxies) != 2 {
+		t.Fatalf("expected first snapshot to contain builtins and provider nodes, got %d", len(first.Proxies))
+	}
+	if first.States["GLOBAL"].Now != "provider-node" {
+		t.Fatalf("expected initial group state provider-node, got %q", first.States["GLOBAL"].Now)
+	}
+
+	unchanged := handleGetProxiesSnapshot()
+	if unchanged.Signature != first.Signature {
+		t.Fatalf("expected unchanged signature %d, got %d", first.Signature, unchanged.Signature)
+	}
+	if unchanged.Proxies != nil {
+		t.Fatalf("expected unchanged snapshot to omit full proxies, got %d entries", len(unchanged.Proxies))
+	}
+
+	var selectable any = groupProxy
+	selector, ok := selectable.(outboundgroup.SelectAble)
+	if !ok {
+		t.Fatalf("expected selector group, got %#v", groupProxy)
+	}
+	if err := selector.Set("provider-node"); err != nil {
+		t.Fatal(err)
+	}
+	provider.version = 2
+	updated := handleGetProxiesSnapshot()
+	if updated.Signature == first.Signature {
+		t.Fatal("expected provider version change to refresh full snapshot")
+	}
+	if len(updated.Proxies) != 2 {
+		t.Fatalf("expected updated snapshot to contain builtins and provider nodes, got %d", len(updated.Proxies))
+	}
+
+	provider.version = 1
+	proxySnapshotCache = proxySnapshotCacheValue{}
+	tunnel.UpdateProxies(
+		map[string]C.Proxy{"GLOBAL": adapter.NewProxy(groupProxy)},
+		map[string]cp.ProxyProvider{"provider": provider},
+	)
+	first = handleGetProxiesSnapshot()
+	if err := selector.Set("provider-node"); err != nil {
+		t.Fatal(err)
+	}
+	_ = selector.Set("provider-node")
+	unchanged = handleGetProxiesSnapshot()
+	if unchanged.Signature != first.Signature {
+		t.Fatal("expected selector state change to preserve signature")
+	}
+	if unchanged.Proxies != nil {
+		t.Fatal("expected selector state change to omit full proxies")
 	}
 }
 

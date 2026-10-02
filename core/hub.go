@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/adapter/outboundgroup"
 	"github.com/metacubex/mihomo/common/observable"
@@ -19,6 +20,7 @@ import (
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
+	"hash/fnv"
 	"net"
 	"os"
 	"reflect"
@@ -38,6 +40,27 @@ var (
 
 const asyncTestDelayBatchKey = "async-test-delay"
 
+type ProxySnapshotState struct {
+	Now    string `json:"now"`
+	Hidden bool   `json:"hidden"`
+}
+
+type ProxySnapshot struct {
+	Signature uint64                        `json:"signature"`
+	Proxies   map[string]constant.Proxy     `json:"proxies,omitempty"`
+	States    map[string]ProxySnapshotState `json:"states"`
+}
+
+type proxySnapshotCacheValue struct {
+	mux              sync.Mutex
+	builtins         map[string]constant.Proxy
+	providers        map[string]cp.ProxyProvider
+	providerVersions map[string]uint32
+	signature        uint64
+}
+
+var proxySnapshotCache = proxySnapshotCacheValue{}
+
 type proxyLookupCache struct {
 	mux              sync.RWMutex
 	builtins         map[string]constant.Proxy
@@ -50,6 +73,85 @@ var proxyLookup proxyLookupCache
 
 func sameMapIdentity[K comparable, V any](left, right map[K]V) bool {
 	return reflect.ValueOf(left).Pointer() == reflect.ValueOf(right).Pointer()
+}
+
+func sameProxyProviderStructure(
+	left map[string]cp.ProxyProvider,
+	right map[string]cp.ProxyProvider,
+	leftVersions map[string]uint32,
+) bool {
+	if !sameMapIdentity(left, right) {
+		return false
+	}
+	if len(leftVersions) != len(right) {
+		return false
+	}
+	for name, provider := range right {
+		version, exist := leftVersions[name]
+		if !exist || version != provider.Version() {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *proxySnapshotCacheValue) current(
+	builtins map[string]constant.Proxy,
+	providers map[string]cp.ProxyProvider,
+) bool {
+	return c.signature != 0 &&
+		sameMapIdentity(c.builtins, builtins) &&
+		sameProxyProviderStructure(c.providers, providers, c.providerVersions)
+}
+
+func proxyStructureSignature(
+	builtins map[string]constant.Proxy,
+	providers map[string]cp.ProxyProvider,
+) uint64 {
+	hasher := fnv.New64a()
+	fmt.Fprintf(hasher, "%x:%d", reflect.ValueOf(builtins).Pointer(), len(builtins))
+	names := make([]string, 0, len(providers))
+	for name := range providers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		provider := providers[name]
+		fmt.Fprintf(
+			hasher,
+			"|:%s:%x:%d",
+			name,
+			reflect.ValueOf(provider).Pointer(),
+			provider.Version(),
+		)
+	}
+	return hasher.Sum64()
+}
+
+func proxyHiddenValue(adapter any) bool {
+	value := reflect.Indirect(reflect.ValueOf(adapter))
+	if value.Kind() != reflect.Struct {
+		return false
+	}
+	hidden := value.FieldByName("Hidden")
+	return hidden.IsValid() && hidden.Kind() == reflect.Bool && hidden.Bool()
+}
+
+func proxySnapshotStates(
+	builtins map[string]constant.Proxy,
+) map[string]ProxySnapshotState {
+	states := make(map[string]ProxySnapshotState, len(builtins))
+	for name, proxy := range builtins {
+		group, ok := proxy.Adapter().(interface{ Now() string })
+		if !ok {
+			continue
+		}
+		states[name] = ProxySnapshotState{
+			Now:    group.Now(),
+			Hidden: proxyHiddenValue(proxy.Adapter()),
+		}
+	}
+	return states
 }
 
 func (c *proxyLookupCache) isCurrent(
@@ -162,6 +264,7 @@ func handleShutdown() bool {
 	executor.Shutdown()
 	handleForceGC()
 	isInit = false
+	proxySnapshotCache = proxySnapshotCacheValue{}
 	return true
 }
 
@@ -178,6 +281,38 @@ func handleGetProxies() map[string]constant.Proxy {
 	runLock.Lock()
 	defer runLock.Unlock()
 	return tunnel.ProxiesWithProviders()
+}
+
+func handleGetProxiesSnapshot() ProxySnapshot {
+	runLock.Lock()
+	defer runLock.Unlock()
+
+	builtins := tunnel.Proxies()
+	providers := tunnel.Providers()
+	proxySnapshotCache.mux.Lock()
+	defer proxySnapshotCache.mux.Unlock()
+
+	if proxySnapshotCache.current(builtins, providers) {
+		return ProxySnapshot{
+			Signature: proxySnapshotCache.signature,
+			States:    proxySnapshotStates(builtins),
+		}
+	}
+
+	signature := proxyStructureSignature(builtins, providers)
+	providerVersions := make(map[string]uint32, len(providers))
+	for name, provider := range providers {
+		providerVersions[name] = provider.Version()
+	}
+	proxySnapshotCache.builtins = builtins
+	proxySnapshotCache.providers = providers
+	proxySnapshotCache.providerVersions = providerVersions
+	proxySnapshotCache.signature = signature
+	return ProxySnapshot{
+		Signature: signature,
+		Proxies:   tunnel.ProxiesWithProviders(),
+		States:    proxySnapshotStates(builtins),
+	}
 }
 
 func handleChangeProxy(data string, fn func(string string)) {

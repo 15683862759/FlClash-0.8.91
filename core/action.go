@@ -67,6 +67,9 @@ func handleAction(action *Action, result ActionResult) {
 	case getProxiesMethod:
 		result.success(handleGetProxies())
 		return
+	case getProxiesSnapshotMethod:
+		result.success(handleGetProxiesSnapshot())
+		return
 	case changeProxyMethod:
 		data := action.Data.(string)
 		handleChangeProxy(data, func(value string) {

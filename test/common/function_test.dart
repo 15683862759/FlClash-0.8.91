@@ -3,8 +3,38 @@ import 'dart:async';
 import 'package:fl_clash/common/common.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fl_clash/enum/enum.dart';
 
 void main() {
+  test('throttler does not delay first callback when events repeat', () {
+    fakeAsync((async) {
+      var calls = 0;
+      final throttler = Throttler();
+
+      throttler.call(
+        FunctionTag.updateDelay,
+        () => calls++,
+        duration: const Duration(seconds: 3),
+      );
+
+      for (var i = 0; i < 5; i++) {
+        async.elapse(const Duration(milliseconds: 500));
+        throttler.call(
+          FunctionTag.updateDelay,
+          () => calls++,
+          duration: const Duration(seconds: 3),
+        );
+        expect(calls, 0);
+      }
+
+      async.elapse(const Duration(milliseconds: 499));
+      expect(calls, 0);
+
+      async.elapse(const Duration(milliseconds: 2));
+      expect(calls, 1);
+    });
+  });
+
   testWidgets('proxy change debouncer applies first change immediately', (
     tester,
   ) async {

@@ -6,6 +6,7 @@ import 'dart:isolate';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/core/interface.dart';
+import 'package:fl_clash/core/proxies.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/state.dart';
@@ -15,6 +16,7 @@ import 'package:path/path.dart';
 class CoreController {
   static CoreController? _instance;
   late CoreHandlerInterface _interface;
+  final ProxiesSnapshotCache _proxiesSnapshotCache = ProxiesSnapshotCache();
 
   CoreController._internal() {
     if (system.isAndroid) {
@@ -69,6 +71,7 @@ class CoreController {
 
   Future<void> shutdown() async {
     await _interface.shutdown();
+    _proxiesSnapshotCache.clear();
   }
 
   FutureOr<bool> get isInit => _interface.isInit;
@@ -99,6 +102,7 @@ class CoreController {
     VoidCallback? preloadInvoke,
   }) async {
     final res = _interface.setupConfig(params);
+    _proxiesSnapshotCache.clear();
     if (preloadInvoke != null) {
       preloadInvoke();
     }
@@ -111,33 +115,28 @@ class CoreController {
     required Map<String, String> selectedMap,
     required String defaultTestUrl,
   }) async {
-    final proxies = await _interface.getProxies();
-    return Isolate.run<List<Group>>(() {
-      if (proxies.isEmpty) return [];
-      final groupNames = [
-        UsedProxy.GLOBAL.name,
-        ...(proxies[UsedProxy.GLOBAL.name]['all'] as List).where((e) {
-          final proxy = proxies[e] ?? {};
-          return GroupTypeExtension.valueList.contains(proxy['type']);
-        }),
-      ];
-      final groupsRaw = groupNames.map((groupName) {
-        final group = proxies[groupName];
-        group['all'] = ((group['all'] ?? []) as List)
-            .map((name) => proxies[name])
-            .where((proxy) => proxy != null)
-            .toList();
-        return group;
-      }).toList();
-      final groups = groupsRaw.map((e) => Group.fromJson(e)).toList();
-      return computeSort(
-        groups: groups,
-        sortType: sortType,
-        delayMap: delayMap,
-        selectedMap: selectedMap,
-        defaultTestUrl: defaultTestUrl,
+    final snapshot = await _interface.getProxiesSnapshot();
+    if (snapshot.isEmpty) return const [];
+    final signature = snapshot['signature'].toString();
+    final states = snapshot['states'] as Map<Object?, Object?>? ?? const {};
+    final snapshotStates = ProxiesSnapshotCache.parseStates(states);
+    List<Group>? baseGroups;
+    final proxies = snapshot['proxies'] as Map<Object?, Object?>?;
+    if (proxies != null) {
+      if (proxies.isEmpty) return const [];
+      baseGroups = await Isolate.run<List<Group>>(
+        () => ProxiesSnapshotCache.parse(proxies),
       );
-    });
+    }
+    return _proxiesSnapshotCache.update(
+      signature: signature,
+      baseGroups: baseGroups,
+      states: snapshotStates,
+      sortType: sortType,
+      delayMap: delayMap,
+      selectedMap: selectedMap,
+      defaultTestUrl: defaultTestUrl,
+    );
   }
 
   FutureOr<String> changeProxy(ChangeProxyParams changeProxyParams) async {
