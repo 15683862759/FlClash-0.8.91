@@ -50,6 +50,43 @@ void main() {
     );
   });
 
+  test('delay tests continue after one proxy fails', () async {
+    final calls = <String>[];
+    final writes = <List<Delay>>[];
+
+    await runDelayTests(
+      [
+        const SelectedProxyState(proxyName: 'node-a', testUrl: 'url-a'),
+        const SelectedProxyState(proxyName: 'node-b', testUrl: 'url-b'),
+        const SelectedProxyState(proxyName: 'node-c', testUrl: 'url-c'),
+      ],
+      defaultTestUrl: 'default-url',
+      getDelay: (url, name) async {
+        calls.add(name);
+        if (name == 'node-a') {
+          throw StateError('test failed');
+        }
+        return Delay(url: url, name: name, value: name == 'node-b' ? 20 : 30);
+      },
+      setDelays: writes.add,
+      concurrencyLimit: 2,
+      resultBatchInterval: Duration.zero,
+    );
+
+    expect(calls, containsAll(['node-a', 'node-b', 'node-c']));
+    expect(
+      writes.expand((batch) => batch).where((delay) => delay.value != 0),
+      hasLength(3),
+    );
+    expect(
+      writes
+          .expand((batch) => batch)
+          .where((delay) => delay.value != 0)
+          .map((delay) => delay.name),
+      containsAll(['node-a', 'node-b', 'node-c']),
+    );
+  });
+
   test('delay tests resolve duplicate real nodes once', () async {
     final calls = <String>[];
     final writes = <List<Delay>>[];

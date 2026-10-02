@@ -86,7 +86,11 @@ Future<void> runDelayTests(
     await forEachBounded(uniqueStates.values, (state) async {
       final url = state.testUrl.getSafeValue(defaultTestUrl);
       final name = state.proxyName;
-      pendingDelays.add(await getDelay(url, name));
+      try {
+        pendingDelays.add(await getDelay(url, name));
+      } catch (_) {
+        pendingDelays.add(Delay(url: url, name: name, value: -1));
+      }
       resultTimer ??= Timer(resultBatchInterval, flushPendingDelays);
     }, concurrencyLimit: concurrencyLimit);
   } finally {
