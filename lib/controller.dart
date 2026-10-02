@@ -24,8 +24,15 @@ import 'models/models.dart';
 class AppController {
   final BuildContext context;
   final WidgetRef _ref;
+  late final ProxyChangeDebouncer _proxyChangeDebouncer;
 
-  AppController(this.context, WidgetRef ref) : _ref = ref;
+  AppController(this.context, WidgetRef ref) : _ref = ref {
+    _proxyChangeDebouncer = ProxyChangeDebouncer(
+      onChange: (groupName, proxyName) =>
+          changeProxy(groupName: groupName, proxyName: proxyName),
+      onBatchComplete: updateGroupsDebounce,
+    );
+  }
 
   void setupClashConfigDebounce() {
     debouncer.call(FunctionTag.setupClashConfig, () async {
@@ -64,13 +71,7 @@ class AppController {
   }
 
   void changeProxyDebounce(String groupName, String proxyName) {
-    debouncer.call(FunctionTag.changeProxy, (
-      String groupName,
-      String proxyName,
-    ) async {
-      await changeProxy(groupName: groupName, proxyName: proxyName);
-      updateGroupsDebounce();
-    }, args: [groupName, proxyName]);
+    _proxyChangeDebouncer.call(groupName, proxyName);
   }
 
   Future<void> restartCore() async {

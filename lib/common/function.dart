@@ -29,6 +29,52 @@ class Debouncer {
   }
 }
 
+class ProxyChangeDebouncer {
+  final FutureOr<void> Function(String groupName, String proxyName) _onChange;
+  final void Function()? _onBatchComplete;
+  final Duration duration;
+  final Map<String, String> _pendingChanges = {};
+  Timer? _timer;
+  bool _isFlushing = false;
+
+  ProxyChangeDebouncer({
+    required FutureOr<void> Function(String groupName, String proxyName)
+    onChange,
+    void Function()? onBatchComplete,
+    this.duration = const Duration(milliseconds: 100),
+  }) : _onChange = onChange,
+       _onBatchComplete = onBatchComplete;
+
+  void call(String groupName, String proxyName) {
+    _pendingChanges[groupName] = proxyName;
+    _timer?.cancel();
+    _timer = Timer(duration, () {
+      _timer = null;
+      unawaited(_flush());
+    });
+  }
+
+  Future<void> _flush() async {
+    if (_isFlushing || _pendingChanges.isEmpty) {
+      return;
+    }
+    _isFlushing = true;
+    final changes = Map.of(_pendingChanges);
+    _pendingChanges.clear();
+    for (final entry in changes.entries) {
+      await _onChange(entry.key, entry.value);
+    }
+    _isFlushing = false;
+    _onBatchComplete?.call();
+  }
+
+  void cancel() {
+    _timer?.cancel();
+    _timer = null;
+    _pendingChanges.clear();
+  }
+}
+
 class Throttler {
   final Map<FunctionTag, Timer?> _operations = {};
 
