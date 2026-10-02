@@ -43,21 +43,38 @@ extension FutureExt<T> on Future<T> {
     FutureOr<T> Function()? onTimeout,
   }) {
     final realTimeout = timeout ?? const Duration(minutes: 3);
-    Timer(realTimeout + commonDuration, () {
+    var didTimeout = false;
+    final lastCallTimer = Timer(realTimeout + commonDuration, () {
       if (onLast != null) {
         onLast();
       }
     });
-    return this.timeout(
-      realTimeout,
-      onTimeout: () async {
-        if (onTimeout != null) {
-          return onTimeout();
-        } else {
-          throw TimeoutException('${tag ?? runtimeType} timeout');
-        }
-      },
-    );
+    return this
+        .timeout(
+          realTimeout,
+          onTimeout: () {
+            didTimeout = true;
+            if (onTimeout != null) {
+              return onTimeout();
+            } else {
+              throw TimeoutException('${tag ?? runtimeType} timeout');
+            }
+          },
+        )
+        .then(
+          (value) {
+            if (!didTimeout) {
+              lastCallTimer.cancel();
+            }
+            return value;
+          },
+          onError: (Object error) {
+            if (!didTimeout) {
+              lastCallTimer.cancel();
+            }
+            throw error;
+          },
+        );
   }
 }
 

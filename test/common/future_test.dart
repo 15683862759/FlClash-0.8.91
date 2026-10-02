@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,5 +23,25 @@ void main() {
 
     expect(startedCount, taskCount);
     expect(maxActiveCount, lessThanOrEqualTo(concurrencyLimit));
+  });
+
+  testWidgets('withTimeout cancels last cleanup after completion', (
+    tester,
+  ) async {
+    final completer = Completer<int>();
+    var lastCleanupCount = 0;
+    final future = completer.future.withTimeout(
+      timeout: const Duration(milliseconds: 20),
+      onLast: () {
+        lastCleanupCount++;
+      },
+      onTimeout: () => 0,
+    );
+
+    completer.complete(1);
+    expect(await future, 1);
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(lastCleanupCount, 0);
   });
 }
