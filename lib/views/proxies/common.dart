@@ -43,6 +43,36 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
   );
 }
 
+Future<void> runDelayTests(
+  Iterable<SelectedProxyState> proxyStates, {
+  required String defaultTestUrl,
+  required Future<Delay> Function(String url, String proxyName) getDelay,
+  required void Function(List<Delay> delays) setDelays,
+  int concurrencyLimit = 100,
+}) async {
+  final loadingDelays = [
+    for (final state in proxyStates)
+      if (state.proxyName.isNotEmpty)
+        Delay(
+          url: state.testUrl.getSafeValue(defaultTestUrl),
+          name: state.proxyName,
+          value: 0,
+        ),
+  ];
+  if (loadingDelays.isNotEmpty) {
+    setDelays(loadingDelays);
+  }
+
+  await forEachBounded(proxyStates, (state) async {
+    final url = state.testUrl.getSafeValue(defaultTestUrl);
+    final name = state.proxyName;
+    if (name.isEmpty) {
+      return;
+    }
+    setDelays([await getDelay(url, name)]);
+  }, concurrencyLimit: concurrencyLimit);
+}
+
 Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
   final appController = globalState.appController;
   final proxyNames = proxies.map((proxy) => proxy.name).toSet().toList();
@@ -54,25 +84,13 @@ Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
     groups: groups,
     selectedMap: selectedMap,
   );
-  appController.setDelays([
-    for (final state in proxyStates)
-      if (state.proxyName.isNotEmpty)
-        Delay(
-          url: state.testUrl.getSafeValue(defaultTestUrl),
-          name: state.proxyName,
-          value: 0,
-        ),
-  ]);
-
-  await forEachBounded(proxyStates, (state) async {
-    final url = state.testUrl.getSafeValue(defaultTestUrl);
-    final name = state.proxyName;
-    if (name.isEmpty) {
-      return;
-    }
-    appController.setDelay(Delay(url: url, name: name, value: 0));
-    appController.setDelay(await coreController.getDelay(url, name));
-  }, concurrencyLimit: 100);
+  await runDelayTests(
+    proxyStates,
+    defaultTestUrl: defaultTestUrl,
+    getDelay: coreController.getDelay,
+    setDelays: appController.setDelays,
+    concurrencyLimit: 100,
+  );
   appController.addSortNum();
 }
 
