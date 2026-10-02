@@ -367,13 +367,20 @@ ProxyGroupSelectorState proxyGroupSelectorState(
   String groupName,
   String query,
 ) {
-  final proxiesStyle = ref.watch(proxiesStyleSettingProvider);
+  final sortType = ref.watch(
+    proxiesStyleSettingProvider.select((state) => state.sortType),
+  );
+  final cardType = ref.watch(
+    proxiesStyleSettingProvider.select((state) => state.cardType),
+  );
   final group = ref.watch(
     currentGroupsStateProvider.select(
       (state) => state.value.getGroup(groupName),
     ),
   );
-  final sortNum = ref.watch(sortNumProvider);
+  final sortNum = sortType == ProxiesSortType.delay
+      ? ref.watch(sortNumProvider)
+      : 0;
   final columns = ref.watch(getProxiesColumnsProvider);
   final lowQuery = query.toLowerCase();
   final proxies =
@@ -383,8 +390,8 @@ ProxyGroupSelectorState proxyGroupSelectorState(
       [];
   return ProxyGroupSelectorState(
     testUrl: group?.testUrl,
-    proxiesSortType: proxiesStyle.sortType,
-    proxyCardType: proxiesStyle.cardType,
+    proxiesSortType: sortType,
+    proxyCardType: cardType,
     sortNum: sortNum,
     groupType: group?.type ?? GroupType.Selector,
     proxies: proxies,

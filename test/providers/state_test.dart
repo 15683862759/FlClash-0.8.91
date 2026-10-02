@@ -249,6 +249,73 @@ void main() {
     expect(group.all[1].now, isNull);
   });
 
+  test('proxy selector state follows the counter during delay sorting', () {
+    final container = ProviderContainer(
+      overrides: [
+        patchClashConfigProvider.overrideWithValue(defaultClashConfig),
+        groupsProvider.overrideWithValue([
+          Group(
+            type: GroupType.Selector,
+            name: 'group',
+            hidden: false,
+            all: const [Proxy(name: 'node', type: 'Shadowsocks')],
+          ),
+        ]),
+        proxiesStyleSettingProvider.overrideWithValue(
+          const ProxiesStyle(sortType: ProxiesSortType.delay),
+        ),
+        getProxiesColumnsProvider.overrideWithValue(4),
+        sortNumProvider.overrideWith(_MutableSortNum.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final before = container.read(proxyGroupSelectorStateProvider('group', ''));
+    container.read(sortNumProvider.notifier).add();
+    final after = container.read(proxyGroupSelectorStateProvider('group', ''));
+
+    expect(after.sortNum, before.sortNum + 1);
+  });
+
+  test('proxy selector state ignores counter without delay sorting', () {
+    const proxyCount = 1024;
+    final proxies = _CountingProxyList([
+      for (var index = 0; index < proxyCount; index++)
+        Proxy(name: 'node-$index', type: 'Shadowsocks'),
+    ]);
+    final container = ProviderContainer(
+      overrides: [
+        patchClashConfigProvider.overrideWithValue(defaultClashConfig),
+        groupsProvider.overrideWithValue([
+          Group(
+            type: GroupType.Selector,
+            name: 'group',
+            hidden: false,
+            all: proxies,
+          ),
+        ]),
+        proxiesStyleSettingProvider.overrideWithValue(
+          const ProxiesStyle(sortType: ProxiesSortType.none),
+        ),
+        getProxiesColumnsProvider.overrideWithValue(4),
+        sortNumProvider.overrideWith(_MutableSortNum.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final subscription = container.listen(
+      proxyGroupSelectorStateProvider('group', ''),
+      (_, _) {},
+    );
+    final before = subscription.read();
+    final readCount = proxies.elementReadCount;
+    container.read(sortNumProvider.notifier).add();
+    final after = subscription.read();
+
+    expect(after, before);
+    expect(proxies.elementReadCount, readCount);
+  });
+
   test('group refresh signal follows the counter during delay sorting', () {
     final container = ProviderContainer(
       overrides: [
