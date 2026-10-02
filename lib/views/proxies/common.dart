@@ -53,15 +53,17 @@ Future<void> runDelayTests(
   int concurrencyLimit = 100,
   Duration resultBatchInterval = const Duration(milliseconds: 16),
 }) async {
-  final loadingDelays = [
-    for (final state in proxyStates)
-      if (state.proxyName.isNotEmpty)
-        Delay(
-          url: state.testUrl.getSafeValue(defaultTestUrl),
-          name: state.proxyName,
-          value: 0,
-        ),
-  ];
+  final uniqueStates = <(String, String), SelectedProxyState>{};
+  final loadingDelays = <Delay>[];
+  for (final state in proxyStates) {
+    final url = state.testUrl.getSafeValue(defaultTestUrl);
+    final name = state.proxyName;
+    if (name.isEmpty || uniqueStates.containsKey((url, name))) {
+      continue;
+    }
+    uniqueStates[(url, name)] = state;
+    loadingDelays.add(Delay(url: url, name: name, value: 0));
+  }
   if (loadingDelays.isNotEmpty) {
     setDelays(loadingDelays);
   }
@@ -81,12 +83,9 @@ Future<void> runDelayTests(
   }
 
   try {
-    await forEachBounded(proxyStates, (state) async {
+    await forEachBounded(uniqueStates.values, (state) async {
       final url = state.testUrl.getSafeValue(defaultTestUrl);
       final name = state.proxyName;
-      if (name.isEmpty) {
-        return;
-      }
       pendingDelays.add(await getDelay(url, name));
       resultTimer ??= Timer(resultBatchInterval, flushPendingDelays);
     }, concurrencyLimit: concurrencyLimit);

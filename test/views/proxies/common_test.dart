@@ -49,4 +49,37 @@ void main() {
       containsAll(['node-a', 'node-b']),
     );
   });
+
+  test('delay tests resolve duplicate real nodes once', () async {
+    final calls = <String>[];
+    final writes = <List<Delay>>[];
+
+    await runDelayTests(
+      [
+        const SelectedProxyState(
+          proxyName: 'node-a',
+          group: true,
+          testUrl: 'group-url',
+        ),
+        const SelectedProxyState(proxyName: 'node-a', testUrl: 'group-url'),
+      ],
+      defaultTestUrl: 'default-url',
+      getDelay: (url, name) async {
+        calls.add('$name $url');
+        return Delay(url: url, name: name, value: 20);
+      },
+      setDelays: writes.add,
+      concurrencyLimit: 2,
+    );
+
+    expect(calls, hasLength(1));
+    expect(
+      writes.expand((batch) => batch).where((delay) => delay.value == 0),
+      hasLength(1),
+    );
+    expect(
+      writes.expand((batch) => batch).where((delay) => delay.value == 20),
+      hasLength(1),
+    );
+  });
 }
