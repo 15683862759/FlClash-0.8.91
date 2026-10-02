@@ -119,6 +119,39 @@ void main() {
     expect(groups.elementReadCount, lessThan(proxyCount * 2));
   });
 
+  test('selected proxy names reuse one group index', () {
+    const groupCount = 64;
+    final sourceGroups = <Group>[];
+    final selectedMap = <String, String>{};
+    for (var index = 0; index < groupCount; index++) {
+      sourceGroups.add(Group(type: GroupType.Selector, name: 'group-$index'));
+      selectedMap['group-$index'] = 'node-$index';
+    }
+    final groups = _CountingGroupList(sourceGroups);
+
+    final container = ProviderContainer(
+      overrides: [
+        groupsProvider.overrideWithValue(groups),
+        selectedMapProvider.overrideWith((_) => selectedMap),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final subscriptions = [
+      for (var index = 0; index < groupCount; index++)
+        container.listen(
+          getSelectedProxyNameProvider('group-$index'),
+          (_, _) {},
+        ),
+    ];
+
+    expect(
+      subscriptions.map((subscription) => subscription.read()),
+      equals(List.generate(groupCount, (index) => 'node-$index')),
+    );
+    expect(groups.elementReadCount, lessThan(groupCount * 2));
+  });
+
   test('clearing group selection preserves untouched proxy lists', () {
     const proxyCount = 1024;
     final proxies = _CountingProxyList([

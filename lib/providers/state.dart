@@ -538,7 +538,7 @@ String? getProxyName(Ref ref, String groupName) {
 String? getSelectedProxyName(Ref ref, String groupName) {
   final proxyName = ref.watch(getProxyNameProvider(groupName));
   final group = ref.watch(
-    groupsProvider.select((state) => state.getGroup(groupName)),
+    groupsByNameProvider.select((state) => state[groupName]),
   );
   return group?.getCurrentSelectedName(proxyName ?? '');
 }

@@ -1781,7 +1781,7 @@ final class GroupsByNameProvider
   }
 }
 
-String _$groupsByNameHash() => r'218bfee634e311128700eace395e577f025eb88e';
+String _$groupsByNameHash() => r'47ad69337fdd62ffdeec92244e37977a159d3b39';
 
 @ProviderFor(getProxyName)
 const getProxyNameProvider = GetProxyNameFamily._();
@@ -1918,7 +1918,7 @@ final class GetSelectedProxyNameProvider
 }
 
 String _$getSelectedProxyNameHash() =>
-    r'13aeae1fede234983d262d824a85c7375f9e4e78';
+    r'ce154152525aa05e3eae7b6be87c75e446e9a959';
 
 final class GetSelectedProxyNameFamily extends $Family
     with $FunctionalFamilyOverride<String?, String> {
