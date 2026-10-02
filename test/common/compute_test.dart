@@ -108,6 +108,14 @@ void main() {
     expect(selectedMap.readCount, lessThan(proxyCount * 2));
   });
 
+  test('delay comparison places groups before nodes with equal delay', () {
+    const group = DelayState(delay: 10, group: true);
+    const node = DelayState(delay: 10, group: false);
+
+    expect(group.compareTo(node), -1);
+    expect(node.compareTo(group), 1);
+  });
+
   test('batch resolution keeps input order and resolves nested groups', () {
     final groups = [
       const Group(type: GroupType.Selector, name: 'group-a'),
