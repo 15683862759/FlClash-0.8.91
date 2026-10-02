@@ -55,6 +55,15 @@ SelectedProxyState computeRealSelectedProxyState(
   return _RealSelectedProxyResolver(groups, selectedMap).resolve(proxyName);
 }
 
+List<SelectedProxyState> computeRealSelectedProxyStates(
+  Iterable<String> proxyNames, {
+  required List<Group> groups,
+  required Map<String, String> selectedMap,
+}) {
+  final resolver = _RealSelectedProxyResolver(groups, selectedMap);
+  return [for (final proxyName in proxyNames) resolver.resolve(proxyName)];
+}
+
 final class _RealSelectedProxyResolver {
   _RealSelectedProxyResolver(this._groups, this._selectedMap) {
     for (final group in _groups) {

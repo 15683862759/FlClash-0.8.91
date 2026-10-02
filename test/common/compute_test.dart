@@ -107,4 +107,30 @@ void main() {
 
     expect(selectedMap.readCount, lessThan(proxyCount * 2));
   });
+
+  test('batch resolution keeps input order and resolves nested groups', () {
+    final groups = [
+      const Group(type: GroupType.Selector, name: 'group-a'),
+      const Group(
+        type: GroupType.Selector,
+        name: 'group-b',
+        testUrl: 'https://example.com/group-b',
+      ),
+    ];
+    final selectedMap = {'group-a': 'group-b', 'group-b': 'node-b'};
+
+    final states = computeRealSelectedProxyStates(
+      ['group-a', 'node-a'],
+      groups: groups,
+      selectedMap: selectedMap,
+    );
+
+    expect(states, hasLength(2));
+    expect(states[0].proxyName, 'node-b');
+    expect(states[0].group, isTrue);
+    expect(states[0].testUrl, 'https://example.com/group-b');
+    expect(states[1].proxyName, 'node-a');
+    expect(states[1].group, isTrue);
+    expect(states[1].testUrl, isNull);
+  });
 }

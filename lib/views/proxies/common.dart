@@ -46,18 +46,17 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
 Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
   final appController = globalState.appController;
   final proxyNames = proxies.map((proxy) => proxy.name).toSet().toList();
+  final groups = globalState.appState.groups;
+  final selectedMap = globalState.config.currentProfile?.selectedMap ?? {};
+  final defaultTestUrl = appController.getRealTestUrl(testUrl);
+  final proxyStates = computeRealSelectedProxyStates(
+    proxyNames,
+    groups: groups,
+    selectedMap: selectedMap,
+  );
 
-  await forEachBounded(proxyNames, (proxyName) async {
-    final groups = globalState.appState.groups;
-    final selectedMap = globalState.config.currentProfile?.selectedMap ?? {};
-    final state = computeRealSelectedProxyState(
-      proxyName,
-      groups: groups,
-      selectedMap: selectedMap,
-    );
-    final url = state.testUrl.getSafeValue(
-      appController.getRealTestUrl(testUrl),
-    );
+  await forEachBounded(proxyStates, (state) async {
+    final url = state.testUrl.getSafeValue(defaultTestUrl);
     final name = state.proxyName;
     if (name.isEmpty) {
       return;
