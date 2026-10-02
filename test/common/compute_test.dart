@@ -142,6 +142,27 @@ void main() {
     expect(states[1].testUrl, isNull);
   });
 
+  test(
+    'cycle resolution stops instead of looping forever',
+    () {
+      final groups = [
+        const Group(type: GroupType.Selector, name: 'group-a'),
+        const Group(type: GroupType.Selector, name: 'group-b'),
+      ];
+      const selectedMap = {'group-a': 'group-b', 'group-b': 'group-a'};
+
+      final state = computeRealSelectedProxyState(
+        'group-a',
+        groups: groups,
+        selectedMap: selectedMap,
+      );
+
+      expect(state.proxyName, isEmpty);
+      expect(state.group, isTrue);
+    },
+    timeout: const Timeout(Duration(milliseconds: 200)),
+  );
+
   test('delay sorting preserves whether each proxy is a group', () {
     const defaultTestUrl = 'https://example.com/default';
     final groups = [

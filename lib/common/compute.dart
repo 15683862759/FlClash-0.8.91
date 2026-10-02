@@ -103,7 +103,11 @@ final class RealSelectedProxyResolver {
 
   SelectedProxyState _resolve(SelectedProxyState state) {
     var currentState = state;
+    final visitedGroups = <String>{};
     while (currentState.proxyName.isNotEmpty) {
+      if (!visitedGroups.add(currentState.proxyName)) {
+        return currentState.copyWith(group: true, proxyName: '');
+      }
       final group = _groupsByName[currentState.proxyName];
       if (group == null) return currentState;
       final currentSelectedName = group.getCurrentSelectedName(
