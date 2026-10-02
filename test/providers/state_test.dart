@@ -115,6 +115,36 @@ void main() {
     expect(proxies.elementReadCount, proxyCount);
   });
 
+  test('rule mode skips clearing hidden groups', () {
+    const proxyCount = 1024;
+    final proxies = _CountingProxyList([
+      for (var index = 0; index < proxyCount; index++)
+        Proxy(name: 'node-$index', type: 'Shadowsocks'),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: [
+        patchClashConfigProvider.overrideWithValue(defaultClashConfig),
+        groupsProvider.overrideWithValue([
+          const Group(type: GroupType.Selector, name: 'visible', hidden: false),
+          Group(
+            type: GroupType.Selector,
+            name: 'hidden',
+            hidden: true,
+            now: 'node-0',
+            all: proxies,
+          ),
+        ]),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final state = container.read(currentGroupsStateProvider);
+
+    expect(state.value.map((group) => group.name), ['visible']);
+    expect(proxies.elementReadCount, 0);
+  });
+
   test('clearing selection removes current nodes from groups and proxies', () {
     final container = ProviderContainer(
       overrides: [

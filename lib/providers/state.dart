@@ -64,17 +64,16 @@ GroupsState currentGroupsState(Ref ref) {
   final mode = ref.watch(
     patchClashConfigProvider.select((state) => state.mode),
   );
-  final groups = ref.watch(
-    groupsProvider.select((state) => state.map(_clearSelection)),
-  );
+  final groups = ref.watch(groupsProvider);
   return GroupsState(
     value: switch (mode) {
       Mode.direct => [],
-      Mode.global => groups.toList(),
+      Mode.global => groups.map(_clearSelection).toList(),
       Mode.rule =>
         groups
             .where((item) => item.hidden == false)
             .where((element) => element.name != GroupName.GLOBAL.name)
+            .map(_clearSelection)
             .toList(),
     },
   );
