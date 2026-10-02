@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -49,6 +51,7 @@ Future<void> runDelayTests(
   required Future<Delay> Function(String url, String proxyName) getDelay,
   required void Function(List<Delay> delays) setDelays,
   int concurrencyLimit = 100,
+  Duration resultBatchInterval = const Duration(milliseconds: 16),
 }) async {
   final loadingDelays = [
     for (final state in proxyStates)
@@ -63,14 +66,33 @@ Future<void> runDelayTests(
     setDelays(loadingDelays);
   }
 
-  await forEachBounded(proxyStates, (state) async {
-    final url = state.testUrl.getSafeValue(defaultTestUrl);
-    final name = state.proxyName;
-    if (name.isEmpty) {
+  final pendingDelays = <Delay>[];
+  Timer? resultTimer;
+
+  void flushPendingDelays() {
+    resultTimer?.cancel();
+    resultTimer = null;
+    if (pendingDelays.isEmpty) {
       return;
     }
-    setDelays([await getDelay(url, name)]);
-  }, concurrencyLimit: concurrencyLimit);
+    final delays = List.of(pendingDelays);
+    pendingDelays.clear();
+    setDelays(delays);
+  }
+
+  try {
+    await forEachBounded(proxyStates, (state) async {
+      final url = state.testUrl.getSafeValue(defaultTestUrl);
+      final name = state.proxyName;
+      if (name.isEmpty) {
+        return;
+      }
+      pendingDelays.add(await getDelay(url, name));
+      resultTimer ??= Timer(resultBatchInterval, flushPendingDelays);
+    }, concurrencyLimit: concurrencyLimit);
+  } finally {
+    flushPendingDelays();
+  }
 }
 
 Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {

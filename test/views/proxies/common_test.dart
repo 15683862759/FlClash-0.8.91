@@ -26,4 +26,27 @@ void main() {
     expect(delays.where((delay) => delay.value == 0), hasLength(2));
     expect(delays.where((delay) => (delay.value ?? 0) > 0), hasLength(2));
   });
+
+  test('delay test results are written as one batch', () async {
+    final writes = <List<Delay>>[];
+
+    await runDelayTests(
+      [
+        const SelectedProxyState(proxyName: 'node-a', testUrl: 'url-a'),
+        const SelectedProxyState(proxyName: 'node-b', testUrl: 'url-b'),
+      ],
+      defaultTestUrl: 'default-url',
+      getDelay: (url, name) async =>
+          Delay(url: url, name: name, value: name == 'node-a' ? 20 : 30),
+      setDelays: writes.add,
+      concurrencyLimit: 2,
+      resultBatchInterval: Duration.zero,
+    );
+
+    expect(writes, hasLength(2));
+    expect(
+      writes.last.map((delay) => delay.name),
+      containsAll(['node-a', 'node-b']),
+    );
+  });
 }
