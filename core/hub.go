@@ -34,6 +34,8 @@ var (
 	logSubscriber     observable.Subscription[log.Event]
 )
 
+const asyncTestDelayBatchKey = "async-test-delay"
+
 func handleInitClash(paramsString string) bool {
 	runLock.Lock()
 	defer runLock.Unlock()
@@ -175,7 +177,7 @@ func handleResetTraffic() {
 }
 
 func handleAsyncTestDelay(paramsString string, fn func(string)) {
-	mBatch.Go(paramsString, func() (bool, error) {
+	mBatch.Go(asyncTestDelayBatchKey, func() (bool, error) {
 		var params = &TestDelayParams{}
 		err := json.Unmarshal([]byte(paramsString), params)
 		if err != nil {
