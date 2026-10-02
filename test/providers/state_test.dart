@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/app.dart';
+import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,6 +28,28 @@ class _CountingGroupList extends ListBase<Group> {
 
   @override
   set length(int value) => _groups.length = value;
+}
+
+class _CountingProxyList extends ListBase<Proxy> {
+  _CountingProxyList(this._proxies);
+
+  final List<Proxy> _proxies;
+  int elementReadCount = 0;
+
+  @override
+  Proxy operator [](int index) {
+    elementReadCount++;
+    return _proxies[index];
+  }
+
+  @override
+  void operator []=(int index, Proxy value) => _proxies[index] = value;
+
+  @override
+  int get length => _proxies.length;
+
+  @override
+  set length(int value) => _proxies.length = value;
 }
 
 void main() {
@@ -61,5 +84,61 @@ void main() {
       equals(List.generate(proxyCount, (index) => 'node-$index')),
     );
     expect(groups.elementReadCount, lessThan(proxyCount * 2));
+  });
+
+  test('clearing group selection preserves untouched proxy lists', () {
+    const proxyCount = 1024;
+    final proxies = _CountingProxyList([
+      for (var index = 0; index < proxyCount; index++)
+        Proxy(name: 'node-$index', type: 'Shadowsocks'),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: [
+        patchClashConfigProvider.overrideWithValue(defaultClashConfig),
+        groupsProvider.overrideWithValue([
+          Group(
+            type: GroupType.Selector,
+            name: 'group',
+            hidden: false,
+            now: 'node-0',
+            all: proxies,
+          ),
+        ]),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final state = container.read(currentGroupsStateProvider);
+
+    expect(state.value.single.now, isEmpty);
+    expect(proxies.elementReadCount, proxyCount);
+  });
+
+  test('clearing selection removes current nodes from groups and proxies', () {
+    final container = ProviderContainer(
+      overrides: [
+        patchClashConfigProvider.overrideWithValue(defaultClashConfig),
+        groupsProvider.overrideWithValue([
+          Group(
+            type: GroupType.Selector,
+            name: 'group',
+            hidden: false,
+            now: 'node-a',
+            all: const [
+              Proxy(name: 'node-a', type: 'Selector', now: 'node-b'),
+              Proxy(name: 'node-b', type: 'Shadowsocks'),
+            ],
+          ),
+        ]),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final group = container.read(currentGroupsStateProvider).value.single;
+
+    expect(group.now, isEmpty);
+    expect(group.all[0].now, isEmpty);
+    expect(group.all[1].now, isNull);
   });
 }

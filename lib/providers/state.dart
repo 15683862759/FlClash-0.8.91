@@ -12,6 +12,19 @@ import 'config.dart';
 
 part 'generated/state.g.dart';
 
+Group _clearSelection(Group group) {
+  List<Proxy>? all;
+  for (var index = 0; index < group.all.length; index++) {
+    final proxy = group.all[index];
+    if (proxy.now == null) continue;
+    (all ??= List.of(group.all))[index] = proxy.copyWith(now: '');
+  }
+  if (all == null && group.now == '') {
+    return group;
+  }
+  return group.copyWith(now: '', all: all ?? group.all);
+}
+
 @riverpod
 Config configState(Ref ref) {
   final themeProps = ref.watch(themeSettingProvider);
@@ -52,14 +65,7 @@ GroupsState currentGroupsState(Ref ref) {
     patchClashConfigProvider.select((state) => state.mode),
   );
   final groups = ref.watch(
-    groupsProvider.select(
-      (state) => state.map((item) {
-        return item.copyWith(
-          now: '',
-          all: item.all.map((proxy) => proxy.copyWith(now: '')).toList(),
-        );
-      }),
-    ),
+    groupsProvider.select((state) => state.map(_clearSelection)),
   );
   return GroupsState(
     value: switch (mode) {
