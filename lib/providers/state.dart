@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -584,15 +586,22 @@ VM2? layoutChange(Ref ref) {
 }
 
 @riverpod
-VM2<int, bool> checkIp(Ref ref) {
+VM3<int, bool, String> checkIp(Ref ref) {
   final checkIpNum = ref.watch(checkIpNumProvider);
+  final selectedProxyState = ref.watch(selectedProxyStateProvider);
   final containsDetection = ref.watch(
     dashboardStateProvider.select(
       (state) =>
           state.dashboardWidgets.contains(DashboardWidget.networkDetection),
     ),
   );
-  return VM2(a: checkIpNum, b: containsDetection);
+  return VM3(a: checkIpNum, b: containsDetection, c: selectedProxyState);
+}
+
+@riverpod
+String selectedProxyState(Ref ref) {
+  final groups = ref.watch(groupsProvider);
+  return jsonEncode({for (final group in groups) group.name: group.realNow});
 }
 
 @riverpod

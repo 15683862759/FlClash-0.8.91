@@ -980,7 +980,7 @@ final class ProxyGroupSelectorStateProvider
 }
 
 String _$proxyGroupSelectorStateHash() =>
-    r'c2a059873a38907071a2664409bacfe21b7d6c3c';
+    r'f622c7281e08740ef3793aefbe451b7da9ff22ed';
 
 final class ProxyGroupSelectorStateFamily extends $Family
     with $FunctionalFamilyOverride<ProxyGroupSelectorState, (String, String)> {
@@ -2145,8 +2145,13 @@ String _$layoutChangeHash() => r'f25182e1dfaf3c70000404d7635bb1e1db09efbb';
 const checkIpProvider = CheckIpProvider._();
 
 final class CheckIpProvider
-    extends $FunctionalProvider<VM2<int, bool>, VM2<int, bool>, VM2<int, bool>>
-    with $Provider<VM2<int, bool>> {
+    extends
+        $FunctionalProvider<
+          VM3<int, bool, String>,
+          VM3<int, bool, String>,
+          VM3<int, bool, String>
+        >
+    with $Provider<VM3<int, bool, String>> {
   const CheckIpProvider._()
     : super(
         from: null,
@@ -2163,24 +2168,67 @@ final class CheckIpProvider
 
   @$internal
   @override
-  $ProviderElement<VM2<int, bool>> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<VM3<int, bool, String>> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
-  VM2<int, bool> create(Ref ref) {
+  VM3<int, bool, String> create(Ref ref) {
     return checkIp(ref);
   }
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(VM2<int, bool> value) {
+  Override overrideWithValue(VM3<int, bool, String> value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<VM2<int, bool>>(value),
+      providerOverride: $SyncValueProvider<VM3<int, bool, String>>(value),
     );
   }
 }
 
-String _$checkIpHash() => r'07ebf8d032349e2b3adda483e68b1936ffbed68d';
+String _$checkIpHash() => r'4718c08690ceb987d1478ecf6bcc077aef8b3b94';
+
+@ProviderFor(selectedProxyState)
+const selectedProxyStateProvider = SelectedProxyStateProvider._();
+
+final class SelectedProxyStateProvider
+    extends $FunctionalProvider<String, String, String>
+    with $Provider<String> {
+  const SelectedProxyStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'selectedProxyStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$selectedProxyStateHash();
+
+  @$internal
+  @override
+  $ProviderElement<String> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  String create(Ref ref) {
+    return selectedProxyState(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(String value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String>(value),
+    );
+  }
+}
+
+String _$selectedProxyStateHash() =>
+    r'd770358c8fca4789bd0a7ba50a897e0be70491ff';
 
 @ProviderFor(genColorScheme)
 const genColorSchemeProvider = GenColorSchemeFamily._();
@@ -2455,7 +2503,7 @@ final class NeedUpdateGroupsProvider
   }
 }
 
-String _$needUpdateGroupsHash() => r'1d1fbf135b4b5d2a2ee984e421ccffe7c4bb0a47';
+String _$needUpdateGroupsHash() => r'706ec9a258ceb62364b4b0aef188f2b2ead7900b';
 
 @ProviderFor(androidState)
 const androidStateProvider = AndroidStateProvider._();

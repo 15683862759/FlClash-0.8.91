@@ -63,6 +63,27 @@ class _MutableSortNum extends SortNum {
   int add() => state++;
 }
 
+class _MutableCheckIpNum extends CheckIpNum {
+  @override
+  int build() => 0;
+
+  @override
+  void onUpdate(int value) {}
+
+  @override
+  int add() => state++;
+}
+
+List<Group> _mutableGroupsForTest = const [];
+
+class _MutableGroups extends Groups {
+  @override
+  List<Group> build() => _mutableGroupsForTest;
+
+  @override
+  bool updateShouldNotify(previous, next) => true;
+}
+
 void main() {
   test('proxy descriptions reuse one group index', () {
     const groupCount = 64;
@@ -352,5 +373,47 @@ void main() {
     final after = container.read(needUpdateGroupsProvider);
 
     expect(after, before);
+  });
+
+  test('check ip signal changes when group selected node changes', () {
+    final container = ProviderContainer(
+      overrides: [
+        groupsProvider.overrideWith(_MutableGroups.new),
+        checkIpNumProvider.overrideWith(_MutableCheckIpNum.new),
+        dashboardStateProvider.overrideWithValue(
+          const DashboardState(
+            dashboardWidgets: [DashboardWidget.networkDetection],
+            contentWidth: 0,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    _mutableGroupsForTest = [
+      Group(
+        type: GroupType.URLTest,
+        name: 'auto',
+        now: 'node-a',
+        all: [Proxy(name: 'node-a', type: 'Shadowsocks')],
+      ),
+    ];
+    container.listen(checkIpProvider, (_, _) {});
+    final before = container.read(checkIpProvider);
+    container.read(groupsProvider.notifier).state = [
+      Group(
+        type: GroupType.URLTest,
+        name: 'auto',
+        now: 'node-b',
+        all: [
+          Proxy(name: 'node-a', type: 'Shadowsocks'),
+          Proxy(name: 'node-b', type: 'Shadowsocks'),
+        ],
+      ),
+    ];
+    final after = container.read(checkIpProvider);
+
+    expect(after.a, before.a);
+    expect(after.c, isNot(before.c));
   });
 }
