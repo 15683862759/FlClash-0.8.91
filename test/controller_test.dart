@@ -22,6 +22,23 @@ class _CountingHotKeyActions extends HotKeyActions {
   }
 }
 
+class _RecordingGroupRefreshController extends AppController {
+  _RecordingGroupRefreshController(super.context, super.ref);
+
+  final groupRefreshDurations = <Duration?>[];
+
+  @override
+  Future<void> changeProxy({
+    required String groupName,
+    required String proxyName,
+  }) async {}
+
+  @override
+  void updateGroupsDebounce([Duration? duration]) {
+    groupRefreshDurations.add(duration);
+  }
+}
+
 void main() {
   testWidgets('updating a hotkey action commits one state change', (
     tester,
@@ -57,6 +74,31 @@ void main() {
     expect(notifier.updateCount, 1);
     expect(container.read(hotKeyActionsProvider), const [
       HotKeyAction(action: HotAction.start, key: 2),
+    ]);
+  });
+
+  testWidgets('proxy change schedules a fast group refresh', (tester) async {
+    globalState.config = Config(themeProps: defaultThemeProps);
+    late _RecordingGroupRefreshController controller;
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: Consumer(
+          builder: (context, ref, _) {
+            controller = _RecordingGroupRefreshController(context, ref);
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    controller.changeProxyDebounce('group', 'node');
+    await tester.pump();
+    expect(controller.groupRefreshDurations, [
+      const Duration(milliseconds: 16),
     ]);
   });
 }

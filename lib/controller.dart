@@ -30,7 +30,8 @@ class AppController {
     _proxyChangeDebouncer = ProxyChangeDebouncer(
       onChange: (groupName, proxyName) =>
           changeProxy(groupName: groupName, proxyName: proxyName),
-      onBatchComplete: updateGroupsDebounce,
+      onBatchComplete: () =>
+          updateGroupsDebounce(const Duration(milliseconds: 16)),
     );
   }
 
