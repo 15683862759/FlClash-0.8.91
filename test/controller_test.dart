@@ -1,9 +1,12 @@
+import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,6 +39,19 @@ class _RecordingGroupRefreshController extends AppController {
   @override
   void updateGroupsDebounce([Duration? duration]) {
     groupRefreshDurations.add(duration);
+  }
+}
+
+class _CountingDelayDataSource extends DelayDataSource {
+  int setDelayCalls = 0;
+
+  @override
+  DelayMap build() => {};
+
+  @override
+  bool setDelays(Iterable<Delay> delays) {
+    setDelayCalls++;
+    return super.setDelays(delays);
   }
 }
 
@@ -100,5 +116,41 @@ void main() {
     expect(controller.groupRefreshDurations, [
       const Duration(milliseconds: 16),
     ]);
+  });
+
+  testWidgets('setting unchanged delays reports no change', (tester) async {
+    globalState.appState = AppState(
+      brightness: Brightness.light,
+      requests: FixedList(100),
+      version: 0,
+      viewSize: Size.zero,
+      logs: FixedList(100),
+      traffics: FixedList(30),
+      totalTraffic: const Traffic(),
+      systemUiOverlayStyle: const SystemUiOverlayStyle(),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        delayDataSourceProvider.overrideWith(_CountingDelayDataSource.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    late AppController controller;
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: Consumer(
+          builder: (context, ref, _) {
+            controller = AppController(context, ref);
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    const delay = Delay(name: 'node', url: 'https://test', value: 120);
+    expect(controller.setDelays([delay]), isTrue);
+    expect(controller.setDelays([delay]), isFalse);
   });
 }

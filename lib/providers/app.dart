@@ -375,11 +375,13 @@ class DelayDataSource extends _$DelayDataSource with AutoDisposeNotifierMixin {
     setDelays([delay]);
   }
 
-  void setDelays(Iterable<Delay> delays) {
+  bool setDelays(Iterable<Delay> delays) {
     final newDelayMap = updateDelayMap(state, delays);
-    if (!identical(newDelayMap, state)) {
+    final hasChanges = !identical(newDelayMap, state);
+    if (hasChanges) {
       value = newDelayMap;
     }
+    return hasChanges;
   }
 }
 

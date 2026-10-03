@@ -606,8 +606,8 @@ class AppController {
     _ref.read(delayDataSourceProvider.notifier).setDelay(delay);
   }
 
-  void setDelays(Iterable<Delay> delays) {
-    _ref.read(delayDataSourceProvider.notifier).setDelays(delays);
+  bool setDelays(Iterable<Delay> delays) {
+    return _ref.read(delayDataSourceProvider.notifier).setDelays(delays);
   }
 
   void toPage(PageLabel pageLabel) {

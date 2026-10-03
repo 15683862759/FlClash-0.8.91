@@ -72,8 +72,9 @@ class _CoreContainerState extends ConsumerState<CoreManager>
 
   void _flushDelays(List<Delay> delays) {
     final appController = globalState.appController;
-    appController.setDelays(delays);
-    appController.updateGroupsDebounce(const Duration(milliseconds: 16));
+    if (appController.setDelays(delays)) {
+      appController.updateGroupsDebounce(const Duration(milliseconds: 16));
+    }
   }
 
   @override
