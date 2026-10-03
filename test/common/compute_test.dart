@@ -32,6 +32,68 @@ class _CountingSelectedMap extends MapBase<String, String> {
 }
 
 void main() {
+  test('active proxy state ignores an unrelated group switch', () {
+    List<Group> buildGroups({required String fallbackNode}) => [
+      const Group(
+        type: GroupType.Selector,
+        name: 'manual',
+        all: [
+          Proxy(name: 'auto', type: 'URLTest'),
+          Proxy(name: 'fallback', type: 'Fallback'),
+        ],
+      ),
+      const Group(type: GroupType.URLTest, name: 'auto', now: 'node-a'),
+      Group(type: GroupType.Fallback, name: 'fallback', now: fallbackNode),
+    ];
+
+    final before = computeActiveSelectedProxyState(
+      mode: Mode.rule,
+      groups: buildGroups(fallbackNode: 'node-a'),
+      selectedMap: const {'manual': 'auto'},
+      currentGroupName: 'manual',
+    );
+
+    final after = computeActiveSelectedProxyState(
+      mode: Mode.rule,
+      groups: buildGroups(fallbackNode: 'node-b'),
+      selectedMap: const {'manual': 'auto'},
+      currentGroupName: 'manual',
+    );
+
+    expect(before, after);
+  });
+
+  test('active proxy state follows the active group switch', () {
+    List<Group> buildGroups({required String autoNode}) => [
+      const Group(
+        type: GroupType.Selector,
+        name: 'manual',
+        all: [
+          Proxy(name: 'auto', type: 'URLTest'),
+          Proxy(name: 'fallback', type: 'Fallback'),
+        ],
+      ),
+      Group(type: GroupType.URLTest, name: 'auto', now: autoNode),
+      const Group(type: GroupType.Fallback, name: 'fallback', now: 'node-a'),
+    ];
+
+    final before = computeActiveSelectedProxyState(
+      mode: Mode.rule,
+      groups: buildGroups(autoNode: 'node-a'),
+      selectedMap: const {'manual': 'auto'},
+      currentGroupName: 'manual',
+    );
+
+    final after = computeActiveSelectedProxyState(
+      mode: Mode.rule,
+      groups: buildGroups(autoNode: 'node-b'),
+      selectedMap: const {'manual': 'auto'},
+      currentGroupName: 'manual',
+    );
+
+    expect(before, isNot(after));
+  });
+
   test('delay sorting orders proxies by resolved delay', () {
     const defaultTestUrl = 'https://example.com/default';
     final groups = [
@@ -142,26 +204,22 @@ void main() {
     expect(states[1].testUrl, isNull);
   });
 
-  test(
-    'cycle resolution stops instead of looping forever',
-    () {
-      final groups = [
-        const Group(type: GroupType.Selector, name: 'group-a'),
-        const Group(type: GroupType.Selector, name: 'group-b'),
-      ];
-      const selectedMap = {'group-a': 'group-b', 'group-b': 'group-a'};
+  test('cycle resolution stops instead of looping forever', () {
+    final groups = [
+      const Group(type: GroupType.Selector, name: 'group-a'),
+      const Group(type: GroupType.Selector, name: 'group-b'),
+    ];
+    const selectedMap = {'group-a': 'group-b', 'group-b': 'group-a'};
 
-      final state = computeRealSelectedProxyState(
-        'group-a',
-        groups: groups,
-        selectedMap: selectedMap,
-      );
+    final state = computeRealSelectedProxyState(
+      'group-a',
+      groups: groups,
+      selectedMap: selectedMap,
+    );
 
-      expect(state.proxyName, isEmpty);
-      expect(state.group, isTrue);
-    },
-    timeout: const Timeout(Duration(milliseconds: 200)),
-  );
+    expect(state.proxyName, isEmpty);
+    expect(state.group, isTrue);
+  }, timeout: const Timeout(Duration(milliseconds: 200)));
 
   test('delay sorting preserves whether each proxy is a group', () {
     const defaultTestUrl = 'https://example.com/default';

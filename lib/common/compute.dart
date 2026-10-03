@@ -1,7 +1,26 @@
+import 'dart:convert';
+
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 
 import 'string.dart';
+
+String computeActiveSelectedProxyState({
+  required Mode mode,
+  required List<Group> groups,
+  required Map<String, String> selectedMap,
+  String? currentGroupName,
+}) {
+  if (mode == Mode.direct) return 'DIRECT';
+  final groupName = switch (mode) {
+    Mode.global => GroupName.GLOBAL.name,
+    _ => currentGroupName ?? '',
+  };
+  if (groupName.isEmpty) return '';
+  final resolver = RealSelectedProxyResolver(groups, selectedMap);
+  final state = resolver.resolve(groupName);
+  return jsonEncode({groupName: state.proxyName});
+}
 
 List<Group> computeSort({
   required List<Group> groups,

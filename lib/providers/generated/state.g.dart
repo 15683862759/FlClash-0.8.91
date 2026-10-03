@@ -2228,7 +2228,7 @@ final class SelectedProxyStateProvider
 }
 
 String _$selectedProxyStateHash() =>
-    r'd770358c8fca4789bd0a7ba50a897e0be70491ff';
+    r'5ce8d4a72e3d18e37ee57d508f795f8629659810';
 
 @ProviderFor(genColorScheme)
 const genColorSchemeProvider = GenColorSchemeFamily._();

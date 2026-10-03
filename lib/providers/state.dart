@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -600,8 +598,20 @@ VM3<int, bool, String> checkIp(Ref ref) {
 
 @riverpod
 String selectedProxyState(Ref ref) {
+  final mode = ref.watch(
+    patchClashConfigProvider.select((state) => state.mode),
+  );
+  final currentGroupName = ref.watch(
+    currentProfileProvider.select((state) => state?.currentGroupName),
+  );
   final groups = ref.watch(groupsProvider);
-  return jsonEncode({for (final group in groups) group.name: group.realNow});
+  final selectedMap = ref.watch(selectedMapProvider);
+  return computeActiveSelectedProxyState(
+    mode: mode,
+    groups: groups,
+    selectedMap: selectedMap,
+    currentGroupName: currentGroupName,
+  );
 }
 
 @riverpod

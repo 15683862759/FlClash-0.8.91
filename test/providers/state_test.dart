@@ -376,9 +376,16 @@ void main() {
   });
 
   test('check ip signal changes when group selected node changes', () {
+    const profile = Profile(
+      id: 'profile',
+      currentGroupName: 'auto',
+      autoUpdateDuration: Duration.zero,
+    );
     final container = ProviderContainer(
       overrides: [
         groupsProvider.overrideWith(_MutableGroups.new),
+        patchClashConfigProvider.overrideWithValue(defaultClashConfig),
+        currentProfileProvider.overrideWith((_) => profile),
         checkIpNumProvider.overrideWith(_MutableCheckIpNum.new),
         dashboardStateProvider.overrideWithValue(
           const DashboardState(
@@ -415,5 +422,57 @@ void main() {
 
     expect(after.a, before.a);
     expect(after.c, isNot(before.c));
+  });
+
+  test('check ip signal ignores an unrelated group switch', () {
+    const profile = Profile(
+      id: 'profile',
+      currentGroupName: 'auto',
+      autoUpdateDuration: Duration.zero,
+    );
+    final container = ProviderContainer(
+      overrides: [
+        groupsProvider.overrideWith(_MutableGroups.new),
+        patchClashConfigProvider.overrideWithValue(defaultClashConfig),
+        currentProfileProvider.overrideWith((_) => profile),
+        checkIpNumProvider.overrideWith(_MutableCheckIpNum.new),
+        dashboardStateProvider.overrideWithValue(
+          const DashboardState(
+            dashboardWidgets: [DashboardWidget.networkDetection],
+            contentWidth: 0,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    Group buildFallback({required String now}) =>
+        Group(type: GroupType.Fallback, name: 'fallback', now: now);
+
+    _mutableGroupsForTest = [
+      Group(
+        type: GroupType.URLTest,
+        name: 'auto',
+        now: 'node-a',
+        all: [Proxy(name: 'node-a', type: 'Shadowsocks')],
+      ),
+      buildFallback(now: 'node-a'),
+    ];
+    container.listen(checkIpProvider, (_, _) {});
+    final before = container.read(checkIpProvider);
+
+    _mutableGroupsForTest = [
+      Group(
+        type: GroupType.URLTest,
+        name: 'auto',
+        now: 'node-a',
+        all: [Proxy(name: 'node-a', type: 'Shadowsocks')],
+      ),
+      buildFallback(now: 'node-b'),
+    ];
+    container.read(groupsProvider.notifier).state = _mutableGroupsForTest;
+    final after = container.read(checkIpProvider);
+
+    expect(after, before);
   });
 }
