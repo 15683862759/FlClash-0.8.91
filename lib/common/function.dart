@@ -137,6 +137,25 @@ class DelayResultBatcher {
   }
 }
 
+class GroupRefreshGate {
+  List<Group>? _lastGroups;
+
+  GroupRefreshGate([List<Group>? initialGroups]) {
+    if (initialGroups != null) {
+      _lastGroups = List.of(initialGroups);
+    }
+  }
+
+  bool shouldCommit(List<Group> groups) {
+    final lastGroups = _lastGroups;
+    if (lastGroups != null && groupListEquality.equals(lastGroups, groups)) {
+      return false;
+    }
+    _lastGroups = List.of(groups);
+    return true;
+  }
+}
+
 class Throttler {
   final Map<FunctionTag, Timer?> _operations = {};
 

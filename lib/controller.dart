@@ -25,8 +25,10 @@ class AppController {
   final BuildContext context;
   final WidgetRef _ref;
   late final ProxyChangeDebouncer _proxyChangeDebouncer;
+  late final GroupRefreshGate _groupRefreshGate;
 
   AppController(this.context, WidgetRef ref) : _ref = ref {
+    _groupRefreshGate = GroupRefreshGate();
     _proxyChangeDebouncer = ProxyChangeDebouncer(
       onChange: (groupName, proxyName) =>
           changeProxy(groupName: groupName, proxyName: proxyName),
@@ -369,9 +371,9 @@ class AppController {
   }
 
   Future<void> updateGroups() async {
+    List<Group> groups;
     try {
-      commonPrint.log('updateGroups');
-      _ref.read(groupsProvider.notifier).value = await retry(
+      groups = await retry(
         task: () async {
           final sortType = _ref.read(
             proxiesStyleSettingProvider.select((state) => state.sortType),
@@ -392,8 +394,15 @@ class AppController {
         },
         retryIf: (res) => res.isEmpty,
       );
+      if (!_groupRefreshGate.shouldCommit(groups)) {
+        return;
+      }
+      commonPrint.log('updateGroups');
+      _ref.read(groupsProvider.notifier).value = groups;
     } catch (_) {
-      _ref.read(groupsProvider.notifier).value = [];
+      if (_groupRefreshGate.shouldCommit(const [])) {
+        _ref.read(groupsProvider.notifier).value = [];
+      }
     }
   }
 

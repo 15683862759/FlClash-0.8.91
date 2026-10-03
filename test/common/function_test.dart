@@ -65,6 +65,25 @@ void main() {
     });
   });
 
+  test('group refresh gate rejects equivalent snapshots', () {
+    final gate = GroupRefreshGate();
+    const groups = [Group(name: 'Proxy', type: GroupType.Selector)];
+
+    expect(gate.shouldCommit(groups), isTrue);
+    expect(gate.shouldCommit(List.of(groups)), isFalse);
+    expect(
+      gate.shouldCommit([
+        Group(
+          name: 'Proxy',
+          type: GroupType.Selector,
+          all: const [Proxy(name: 'Node', type: 'Selector', now: 'Next')],
+        ),
+      ]),
+      isTrue,
+    );
+    expect(gate.shouldCommit(List.of(groups)), isTrue);
+  });
+
   testWidgets('proxy change debouncer applies first change immediately', (
     tester,
   ) async {
