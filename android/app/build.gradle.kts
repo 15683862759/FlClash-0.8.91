@@ -93,6 +93,12 @@ flutter {
     source = "../.."
 }
 
+tasks.whenTaskAdded {
+    if (name.startsWith("uploadCrashlyticsMappingFile")) {
+        enabled = false
+    }
+}
+
 
 dependencies {
     implementation(project(":service"))
