@@ -4,6 +4,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/models/models.dart';
 
 void main() {
   test('throttler does not delay first callback when events repeat', () {
@@ -32,6 +33,35 @@ void main() {
 
       async.elapse(const Duration(milliseconds: 2));
       expect(calls, 1);
+    });
+  });
+
+  test('delay result batcher coalesces a short burst', () {
+    fakeAsync((async) {
+      final flushes = <List<Delay>>[];
+      final batcher = DelayResultBatcher(
+        onFlush: flushes.add,
+        interval: const Duration(milliseconds: 16),
+      );
+
+      batcher.add(const Delay(name: 'A', url: 'https://a', value: 20));
+      batcher.add(const Delay(name: 'B', url: 'https://b', value: 0));
+      batcher.add(const Delay(name: 'C', url: 'https://c', value: -1));
+      expect(flushes, isEmpty);
+
+      async.elapse(const Duration(milliseconds: 16));
+      expect(flushes, [
+        [
+          const Delay(name: 'A', url: 'https://a', value: 20),
+          const Delay(name: 'B', url: 'https://b', value: 0),
+          const Delay(name: 'C', url: 'https://c', value: -1),
+        ],
+      ]);
+
+      batcher.add(const Delay(name: 'D', url: 'https://d', value: 30));
+      async.elapse(const Duration(milliseconds: 16));
+      expect(flushes, hasLength(2));
+      expect(flushes.last.single.name, 'D');
     });
   });
 

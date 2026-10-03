@@ -20,6 +20,12 @@ class CoreManager extends ConsumerStatefulWidget {
 
 class _CoreContainerState extends ConsumerState<CoreManager>
     with CoreEventListener {
+  late final DelayResultBatcher _delayResultBatcher;
+
+  _CoreContainerState() {
+    _delayResultBatcher = DelayResultBatcher(onFlush: _flushDelays);
+  }
+
   @override
   Widget build(BuildContext context) {
     return widget.child;
@@ -54,17 +60,20 @@ class _CoreContainerState extends ConsumerState<CoreManager>
   @override
   Future<void> dispose() async {
     coreEventManager.removeListener(this);
+    _delayResultBatcher.dispose();
     super.dispose();
   }
 
   @override
   Future<void> onDelay(Delay delay) async {
     super.onDelay(delay);
+    _delayResultBatcher.add(delay);
+  }
+
+  void _flushDelays(List<Delay> delays) {
     final appController = globalState.appController;
-    appController.setDelay(delay);
-    throttler.call(FunctionTag.updateDelay, () async {
-      appController.updateGroupsDebounce();
-    }, duration: const Duration(seconds: 3));
+    appController.setDelays(delays);
+    appController.updateGroupsDebounce(const Duration(milliseconds: 16));
   }
 
   @override

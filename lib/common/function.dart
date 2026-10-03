@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/models/models.dart';
 
 class Debouncer {
   final Map<FunctionTag, Timer?> _operations = {};
@@ -99,6 +100,40 @@ class ProxyChangeDebouncer {
     _timer?.cancel();
     _timer = null;
     _pendingChanges.clear();
+  }
+}
+
+class DelayResultBatcher {
+  final void Function(List<Delay> delays) onFlush;
+  final Duration interval;
+  final List<Delay> _delays = [];
+  Timer? _timer;
+
+  DelayResultBatcher({
+    required this.onFlush,
+    this.interval = const Duration(milliseconds: 16),
+  });
+
+  void add(Delay delay) {
+    _delays.add(delay);
+    _timer ??= Timer(interval, flush);
+  }
+
+  void flush() {
+    _timer?.cancel();
+    _timer = null;
+    if (_delays.isEmpty) {
+      return;
+    }
+    final delays = List.of(_delays);
+    _delays.clear();
+    onFlush(delays);
+  }
+
+  void dispose() {
+    _timer?.cancel();
+    _timer = null;
+    _delays.clear();
   }
 }
 
