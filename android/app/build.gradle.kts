@@ -97,6 +97,7 @@ flutter {
 dependencies {
     implementation(project(":service"))
     implementation(project(":common"))
+    testImplementation("junit:junit:4.13.2")
     implementation(libs.core.splashscreen)
     implementation(libs.gson)
     implementation(libs.smali.dexlib2) {

@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
@@ -72,10 +73,24 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
 
     private fun handleInvokeAction(call: MethodCall, result: MethodChannel.Result) {
         launch {
-            val data = call.arguments<String>()!!
-            Service.invokeAction(data) {
-                result.success(it)
+            val data = call.arguments<String>()
+
+            if (data == null) {
+                withContext(Dispatchers.Main) {
+                    result.error("INVALID_ARGUMENTS", "invokeAction data is required", null)
+                }
+                return@launch
             }
+
+            Service.invokeAction(data)
+                .onSuccess { response ->
+                    withContext(Dispatchers.Main) { result.success(response) }
+                }
+                .onFailure { error ->
+                    withContext(Dispatchers.Main) {
+                        result.error("INVOKE_ACTION_FAILED", error.message, null)
+                    }
+                }
         }
     }
 

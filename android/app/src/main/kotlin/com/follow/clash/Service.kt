@@ -12,8 +12,53 @@ import com.follow.clash.service.RemoteService
 import com.follow.clash.service.models.NotificationParams
 import com.follow.clash.service.models.VpnOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+
+class ActionResponseCollector(
+    private val timeoutMillis: Long = ACTION_RESPONSE_TIMEOUT_MILLIS
+) {
+    private val chunks = mutableListOf<ByteArray>()
+    private val completion = CompletableDeferred<Result<String>>()
+
+    val isCompleted: Boolean
+        get() = completion.isCompleted
+
+    fun onResult(
+        result: ByteArray?,
+        isSuccess: Boolean,
+        onAck: (() -> Unit)? = null
+    ) {
+        onAck?.invoke()
+
+        val finished = synchronized(chunks) {
+            chunks.add(result ?: byteArrayOf())
+            isSuccess
+        }
+
+        if (finished) {
+            val formatted = synchronized(chunks) {
+                chunks.toList().formatString()
+            }
+            completion.complete(Result.success(formatted))
+        }
+    }
+
+    suspend fun await(): Result<String> {
+        return try {
+            withTimeout(timeoutMillis) {
+                completion.await()
+            }
+        } catch (error: TimeoutCancellationException) {
+            Result.failure(error)
+        }
+    }
+}
+
+private const val ACTION_RESPONSE_TIMEOUT_MILLIS = 120_000L
 
 object Service {
     private val delegate by lazy {
@@ -40,22 +85,23 @@ object Service {
         delegate.unbind()
     }
 
-    suspend fun invokeAction(data: String, cb: (result: String) -> Unit): Result<Unit> {
-        val res = mutableListOf<ByteArray>()
-        return delegate.useService {
+    suspend fun invokeAction(data: String): Result<String> {
+        val collector = ActionResponseCollector()
+        val request = delegate.useService {
             it.invokeAction(
                 data, object : ICallbackInterface.Stub() {
                     override fun onResult(
                         result: ByteArray?, isSuccess: Boolean, ack: IAckInterface?
                     ) {
-                        res.add(result ?: byteArrayOf())
-                        ack?.onAck()
-                        if (isSuccess) {
-                            cb(res.formatString())
-                        }
+                        collector.onResult(result, isSuccess) { ack?.onAck() }
                     }
                 })
         }
+
+        return request.fold(
+            onSuccess = { collector.await() },
+            onFailure = { Result.failure(it) }
+        )
     }
 
     suspend fun setEventListener(
