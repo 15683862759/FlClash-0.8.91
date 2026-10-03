@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -52,6 +54,19 @@ class _CountingDelayDataSource extends DelayDataSource {
   bool setDelays(Iterable<Delay> delays) {
     setDelayCalls++;
     return super.setDelays(delays);
+  }
+}
+
+class _CountingDebouncedGroupRefreshController extends AppController {
+  _CountingDebouncedGroupRefreshController(super.context, super.ref);
+
+  var activeRefresh = Completer<void>();
+  int updateCalls = 0;
+
+  @override
+  Future<void> updateGroups() {
+    updateCalls++;
+    return activeRefresh.future;
   }
 }
 
@@ -152,5 +167,47 @@ void main() {
     const delay = Delay(name: 'node', url: 'https://test', value: 120);
     expect(controller.setDelays([delay]), isTrue);
     expect(controller.setDelays([delay]), isFalse);
+  });
+
+  testWidgets('debounced group refreshes coalesce during a refresh storm', (
+    tester,
+  ) async {
+    globalState.config = Config(themeProps: defaultThemeProps);
+    late _CountingDebouncedGroupRefreshController controller;
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: Consumer(
+          builder: (context, ref, _) {
+            controller = _CountingDebouncedGroupRefreshController(context, ref);
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    for (var index = 0; index < 5; index++) {
+      controller.updateGroupsDebounce();
+    }
+    expect(controller.updateCalls, 1);
+
+    controller.updateGroupsDebounce();
+    await tester.pump();
+    expect(controller.updateCalls, 1);
+
+    controller.activeRefresh.complete();
+    await tester.pump();
+    expect(controller.updateCalls, 1);
+
+    await tester.pump(const Duration(milliseconds: 249));
+    expect(controller.updateCalls, 1);
+
+    controller.activeRefresh = Completer<void>();
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(controller.updateCalls, 2);
+    expect(controller.activeRefresh.isCompleted, isFalse);
   });
 }

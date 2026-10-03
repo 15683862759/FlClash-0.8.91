@@ -156,6 +156,54 @@ class GroupRefreshGate {
   }
 }
 
+class GroupRefreshScheduler {
+  GroupRefreshScheduler(
+    this._refresh, {
+    this.interval = const Duration(milliseconds: 250),
+  });
+
+  final FutureOr<void> Function() _refresh;
+  final Duration interval;
+  bool _refreshing = false;
+  bool _pending = false;
+  bool _disposed = false;
+  Timer? _cooldown;
+
+  bool get isRefreshing => _refreshing;
+
+  void schedule() {
+    if (_disposed) return;
+    _pending = true;
+    if (_refreshing || _cooldown != null) return;
+    unawaited(_run());
+  }
+
+  Future<void> _run() async {
+    if (_disposed || _refreshing) return;
+    _cooldown?.cancel();
+    _cooldown = null;
+    _refreshing = true;
+    _pending = false;
+    try {
+      await _refresh();
+    } finally {
+      _refreshing = false;
+      if (_pending && !_disposed) {
+        _cooldown = Timer(interval, () {
+          _cooldown = null;
+          if (_pending) unawaited(_run());
+        });
+      }
+    }
+  }
+
+  void dispose() {
+    _disposed = true;
+    _cooldown?.cancel();
+    _cooldown = null;
+  }
+}
+
 class Throttler {
   final Map<FunctionTag, Timer?> _operations = {};
 

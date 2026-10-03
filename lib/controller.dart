@@ -26,9 +26,14 @@ class AppController {
   final WidgetRef _ref;
   late final ProxyChangeDebouncer _proxyChangeDebouncer;
   late final GroupRefreshGate _groupRefreshGate;
+  late final GroupRefreshScheduler _groupRefreshScheduler;
 
   AppController(this.context, WidgetRef ref) : _ref = ref {
     _groupRefreshGate = GroupRefreshGate();
+    _groupRefreshScheduler = GroupRefreshScheduler(
+      () => updateGroups(),
+      interval: const Duration(milliseconds: 250),
+    );
     _proxyChangeDebouncer = ProxyChangeDebouncer(
       onChange: (groupName, proxyName) =>
           changeProxy(groupName: groupName, proxyName: proxyName),
@@ -50,7 +55,7 @@ class AppController {
   }
 
   void updateGroupsDebounce([Duration? duration]) {
-    debouncer.call(FunctionTag.updateGroups, updateGroups, duration: duration);
+    _groupRefreshScheduler.schedule();
   }
 
   void addCheckIpNumDebounce() {

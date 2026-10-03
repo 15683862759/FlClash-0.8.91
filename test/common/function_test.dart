@@ -84,6 +84,43 @@ void main() {
     expect(gate.shouldCommit(List.of(groups)), isTrue);
   });
 
+  test('group refresh scheduler coalesces bursts and runs trailing update', () {
+    fakeAsync((async) {
+      var activeRefresh = Completer<void>();
+      var refreshCalls = 0;
+      final scheduler = GroupRefreshScheduler(() {
+        refreshCalls++;
+        return activeRefresh.future;
+      }, interval: const Duration(milliseconds: 250));
+
+      scheduler.schedule();
+      expect(refreshCalls, 1);
+
+      scheduler.schedule();
+      scheduler.schedule();
+      async.elapse(const Duration(milliseconds: 500));
+      expect(refreshCalls, 1);
+
+      activeRefresh.complete();
+      async.elapse(Duration.zero);
+      expect(refreshCalls, 1);
+
+      async.elapse(const Duration(milliseconds: 249));
+      expect(refreshCalls, 1);
+
+      async.elapse(const Duration(milliseconds: 1));
+      expect(refreshCalls, 2);
+
+      activeRefresh = Completer<void>();
+      async.elapse(const Duration(milliseconds: 100));
+      expect(refreshCalls, 2);
+
+      activeRefresh.complete();
+      async.elapse(Duration.zero);
+      expect(refreshCalls, 2);
+    });
+  });
+
   testWidgets('proxy change debouncer applies first change immediately', (
     tester,
   ) async {
