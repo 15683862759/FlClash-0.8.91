@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,6 +73,20 @@ class _CountingDebouncedGroupRefreshController extends AppController {
 }
 
 void main() {
+  setUp(() async {
+    globalState.appState = AppState(
+      brightness: Brightness.light,
+      requests: FixedList(100),
+      version: 0,
+      viewSize: const Size(800, 600),
+      logs: FixedList(100),
+      traffics: FixedList(30),
+      totalTraffic: const Traffic(),
+      systemUiOverlayStyle: const SystemUiOverlayStyle(),
+    );
+    await AppLocalizations.load(const Locale('en'));
+  });
+
   testWidgets('updating a hotkey action commits one state change', (
     tester,
   ) async {
@@ -209,5 +225,78 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     expect(controller.updateCalls, 2);
     expect(controller.activeRefresh.isCompleted, isFalse);
+  });
+
+  testWidgets('automatic update results do not open a prompt dialog', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    globalState.config = Config(themeProps: defaultThemeProps);
+    late AppController controller;
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          navigatorKey: globalState.navigatorKey,
+          home: Consumer(
+            builder: (context, ref, _) {
+              controller = AppController(context, ref);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+
+    unawaited(
+      controller.checkUpdateResultHandle(
+        data: {'tag_name': 'v999.0.0', 'body': '- performance improvements'},
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(CommonDialog), findsNothing);
+  });
+
+  testWidgets('manual update checks keep showing the result dialog', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    globalState.config = Config(themeProps: defaultThemeProps);
+    late AppController controller;
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          navigatorKey: globalState.navigatorKey,
+          home: Consumer(
+            builder: (context, ref, _) {
+              controller = AppController(context, ref);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+
+    unawaited(
+      controller.checkUpdateResultHandle(
+        data: {'tag_name': 'v999.0.0', 'body': '- performance improvements'},
+        isUser: true,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(CommonDialog), findsOneWidget);
+    await tester.tap(find.byType(TextButton).first);
+    await tester.pumpAndSettle();
   });
 }
