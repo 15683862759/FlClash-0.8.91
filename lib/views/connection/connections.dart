@@ -103,36 +103,33 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
               illustration: ConnectionEmptyIllustration(),
             );
           }
-          final items = connections
-              .map<Widget>(
-                (trackerInfo) => TrackerInfoItem(
-                  key: Key(trackerInfo.id),
-                  trackerInfo: trackerInfo,
-                  onClickKeyword: (value) {
-                    context.commonScaffoldState?.addKeyword(value);
-                  },
-                  trailing: IconButton(
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                    style: IconButton.styleFrom(minimumSize: Size.zero),
-                    icon: const Icon(Icons.block),
-                    onPressed: () {
-                      _handleBlockConnection(trackerInfo.id);
-                    },
-                  ),
-                  detailTitle: appLocalizations.details(
-                    appLocalizations.connection,
-                  ),
-                ),
-              )
-              .separated(const Divider(height: 0))
-              .toList();
+          final lazyConnections = LazySeparatedList<TrackerInfo>(
+            items: connections,
+            separator: const Divider(height: 0),
+            itemBuilder: (itemContext, trackerInfo) => TrackerInfoItem(
+              key: Key(trackerInfo.id),
+              trackerInfo: trackerInfo,
+              onClickKeyword: (value) {
+                itemContext?.commonScaffoldState?.addKeyword(value);
+              },
+              trailing: IconButton(
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(minimumSize: Size.zero),
+                icon: const Icon(Icons.block),
+                onPressed: () {
+                  _handleBlockConnection(trackerInfo.id);
+                },
+              ),
+              detailTitle: appLocalizations.details(
+                appLocalizations.connection,
+              ),
+            ),
+          );
           return SuperListView.builder(
             controller: _scrollController,
-            itemBuilder: (context, index) {
-              return items[index];
-            },
-            itemCount: connections.length,
+            itemBuilder: lazyConnections.build,
+            itemCount: lazyConnections.itemCount,
           );
         },
       ),

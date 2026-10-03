@@ -44,12 +44,11 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
     _requestsStateNotifier.value = _requestsStateNotifier.value.copyWith(
       trackerInfos: _requests,
     );
-    ref.listenManual(requestsProvider.select((state) => state.list), (
-      prev,
-      next,
-    ) {
-      _requests = next;
-      updateRequestsThrottler();
+    ref.listenManual(requestsProvider.select((state) => state.version), (_, _) {
+      if (mounted) {
+        _requests = ref.read(requestsProvider).list;
+        updateRequestsThrottler();
+      }
     });
   }
 
@@ -63,13 +62,6 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
   void updateRequestsThrottler() {
     throttler.call(FunctionTag.requests, () {
       if (!mounted) {
-        return;
-      }
-      final isEquality = trackerInfoListEquality.equals(
-        _requests,
-        _requestsStateNotifier.value.trackerInfos,
-      );
-      if (isEquality) {
         return;
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -118,21 +110,18 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
               label: appLocalizations.nullTip(appLocalizations.requests),
             );
           }
-          final items = requests
-              .map<Widget>(
-                (trackerInfo) => TrackerInfoItem(
-                  key: Key(trackerInfo.id),
-                  trackerInfo: trackerInfo,
-                  onClickKeyword: (value) {
-                    context.commonScaffoldState?.addKeyword(value);
-                  },
-                  detailTitle: appLocalizations.details(
-                    appLocalizations.request,
-                  ),
-                ),
-              )
-              .separated(const Divider(height: 0))
-              .toList();
+          final lazyRequests = LazySeparatedList<TrackerInfo>(
+            items: requests,
+            separator: const Divider(height: 0),
+            itemBuilder: (itemContext, trackerInfo) => TrackerInfoItem(
+              key: Key(trackerInfo.id),
+              trackerInfo: trackerInfo,
+              onClickKeyword: (value) {
+                itemContext?.commonScaffoldState?.addKeyword(value);
+              },
+              detailTitle: appLocalizations.details(appLocalizations.request),
+            ),
+          );
           return Align(
             alignment: Alignment.topCenter,
             child: CommonScrollBar(
@@ -151,10 +140,8 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
                   shrinkWrap: true,
                   physics: NextClampingScrollPhysics(),
                   controller: _scrollController,
-                  itemBuilder: (_, index) {
-                    return items[index];
-                  },
-                  itemCount: items.length,
+                  itemBuilder: lazyRequests.build,
+                  itemCount: lazyRequests.itemCount,
                 ),
               ),
             ),

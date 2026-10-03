@@ -12,6 +12,7 @@ export 'future.dart';
 export 'http.dart';
 export 'icons.dart';
 export 'iterable.dart';
+export 'lazy_list.dart';
 export 'keyboard.dart';
 export 'launch.dart';
 export 'link.dart';

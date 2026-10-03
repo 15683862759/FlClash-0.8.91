@@ -137,6 +137,38 @@ class DelayResultBatcher {
   }
 }
 
+class CoreEventBatcher<T> {
+  final void Function(List<T> values) onFlush;
+  final Duration interval;
+  final List<T> _values = [];
+  Timer? _timer;
+
+  CoreEventBatcher({
+    required this.onFlush,
+    this.interval = const Duration(milliseconds: 16),
+  });
+
+  void add(T value) {
+    _values.add(value);
+    _timer ??= Timer(interval, flush);
+  }
+
+  void flush() {
+    _timer?.cancel();
+    _timer = null;
+    if (_values.isEmpty) {
+      return;
+    }
+    final values = List.of(_values);
+    _values.clear();
+    onFlush(values);
+  }
+
+  void dispose() {
+    flush();
+  }
+}
+
 class GroupRefreshGate {
   List<Group>? _lastGroups;
 

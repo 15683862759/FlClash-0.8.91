@@ -5,17 +5,35 @@ typedef ValueCallback<T> = T Function();
 class FixedList<T> {
   final int maxLength;
   final List<T> _list;
+  int _version;
+
+  static int _nextVersion = 0;
 
   FixedList(this.maxLength, {List<T>? list})
-      : _list = (list ?? [])..truncate(maxLength);
+    : _list = (list ?? [])..truncate(maxLength),
+      _version = _nextVersion++;
+
+  int get version => _version;
 
   void add(T item) {
     _list.add(item);
     _list.truncate(maxLength);
+    _version = _nextVersion++;
+  }
+
+  void addAll(Iterable<T> items) {
+    final lengthBefore = _list.length;
+    _list.addAll(items);
+    if (_list.length == lengthBefore) {
+      return;
+    }
+    _list.truncate(maxLength);
+    _version = _nextVersion++;
   }
 
   void clear() {
     _list.clear();
+    _version = _nextVersion++;
   }
 
   List<T> get list => List.unmodifiable(_list);
@@ -25,10 +43,7 @@ class FixedList<T> {
   T operator [](int index) => _list[index];
 
   FixedList<T> copyWith() {
-    return FixedList(
-      maxLength,
-      list: _list,
-    );
+    return FixedList(maxLength, list: _list);
   }
 }
 

@@ -145,9 +145,23 @@ class CoreController {
 
   Future<List<TrackerInfo>> getConnections() async {
     final res = await _interface.getConnections();
-    final connectionsData = json.decode(res) as Map;
-    final connectionsRaw = connectionsData['connections'] as List? ?? [];
-    return connectionsRaw.map((e) => TrackerInfo.fromJson(e)).toList();
+    if (res.isEmpty) {
+      return const [];
+    }
+    return parseConnections(res);
+  }
+
+  static Future<List<TrackerInfo>> parseConnections(String res) {
+    return Isolate.run(() {
+      if (res.isEmpty) {
+        return const <TrackerInfo>[];
+      }
+      final connectionsData = json.decode(res) as Map;
+      final connectionsRaw = connectionsData['connections'] as List? ?? [];
+      return connectionsRaw
+          .map((e) => TrackerInfo.fromJson(e as Map<String, Object?>))
+          .toList();
+    });
   }
 
   void closeConnection(String id) {

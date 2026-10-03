@@ -65,6 +65,34 @@ void main() {
     });
   });
 
+  test('core event batcher flushes one batch and pending data on dispose', () {
+    fakeAsync((async) {
+      final flushes = <List<int>>[];
+      final batcher = CoreEventBatcher<int>(
+        onFlush: flushes.add,
+        interval: const Duration(milliseconds: 32),
+      );
+
+      batcher.add(1);
+      batcher.add(2);
+      batcher.add(3);
+      expect(flushes, isEmpty);
+
+      async.elapse(const Duration(milliseconds: 32));
+      expect(flushes, [
+        [1, 2, 3],
+      ]);
+
+      batcher.add(4);
+      batcher.dispose();
+      expect(flushes, hasLength(2));
+      expect(flushes.last, [4]);
+
+      async.elapse(const Duration(seconds: 1));
+      expect(flushes, hasLength(2));
+    });
+  });
+
   test('group refresh gate rejects equivalent snapshots', () {
     final gate = GroupRefreshGate();
     const groups = [Group(name: 'Proxy', type: GroupType.Selector)];

@@ -76,6 +76,22 @@ void main() {
     );
   });
 
+  test('single delay test can skip the loading write', () async {
+    final writes = <List<Delay>>[];
+
+    await runDelayTests(
+      [const SelectedProxyState(proxyName: 'node-a', testUrl: 'url-a')],
+      defaultTestUrl: 'default-url',
+      getDelay: (url, name) async => Delay(url: url, name: name, value: 20),
+      setDelays: writes.add,
+      resultBatchInterval: Duration.zero,
+      markLoading: false,
+    );
+
+    expect(writes, hasLength(1));
+    expect(writes.single.single.value, 20);
+  });
+
   test('delay tests continue after one proxy fails', () async {
     final calls = <String>[];
     final writes = <List<Delay>>[];

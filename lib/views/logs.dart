@@ -28,13 +28,10 @@ class _LogsViewState extends ConsumerState<LogsView> {
     _logs = globalState.appState.logs.list;
     _scrollController = ScrollController(initialScrollOffset: double.maxFinite);
     _logsStateNotifier.value = _logsStateNotifier.value.copyWith(logs: _logs);
-    ref.listenManual(logsProvider.select((state) => state.list), (prev, next) {
-      if (prev != next) {
-        final isEquality = logListEquality.equals(prev, next);
-        if (!isEquality) {
-          _logs = next;
-          updateLogsThrottler();
-        }
+    ref.listenManual(logsProvider.select((state) => state.version), (_, _) {
+      if (mounted) {
+        _logs = ref.read(logsProvider).list;
+        updateLogsThrottler();
       }
     });
   }
@@ -87,13 +84,6 @@ class _LogsViewState extends ConsumerState<LogsView> {
       if (!mounted) {
         return;
       }
-      final isEquality = logListEquality.equals(
-        _logs,
-        _logsStateNotifier.value.logs,
-      );
-      if (isEquality) {
-        return;
-      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _logsStateNotifier.value = _logsStateNotifier.value.copyWith(
@@ -140,18 +130,17 @@ class _LogsViewState extends ConsumerState<LogsView> {
               label: appLocalizations.nullTip(appLocalizations.logs),
             );
           }
-          final items = logs
-              .map<Widget>(
-                (log) => LogItem(
-                  key: Key(log.dateTime),
-                  log: log,
-                  onClick: (value) {
-                    context.commonScaffoldState?.addKeyword(value);
-                  },
-                ),
-              )
-              .separated(const Divider(height: 0))
-              .toList();
+          final lazyLogs = LazySeparatedList<Log>(
+            items: logs,
+            separator: const Divider(height: 0),
+            itemBuilder: (itemContext, log) => LogItem(
+              key: Key(log.dateTime),
+              log: log,
+              onClick: (value) {
+                itemContext?.commonScaffoldState?.addKeyword(value);
+              },
+            ),
+          );
           return Align(
             alignment: Alignment.topCenter,
             child: ScrollToEndBox(
@@ -170,10 +159,8 @@ class _LogsViewState extends ConsumerState<LogsView> {
                   reverse: true,
                   shrinkWrap: true,
                   controller: _scrollController,
-                  itemBuilder: (_, index) {
-                    return items[index];
-                  },
-                  itemCount: items.length,
+                  itemBuilder: lazyLogs.build,
+                  itemCount: lazyLogs.itemCount,
                 ),
               ),
             ),

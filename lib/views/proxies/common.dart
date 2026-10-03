@@ -39,11 +39,14 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
   if (state.proxyName.isEmpty) {
     return;
   }
-  appController.setDelay(
-    Delay(url: currentTestUrl, name: state.proxyName, value: 0),
-  );
-  appController.setDelay(
-    await coreController.getDelay(currentTestUrl, state.proxyName),
+  await runDelayTests(
+    [state],
+    defaultTestUrl: currentTestUrl,
+    getDelay: coreController.getDelay,
+    setDelays: appController.setDelays,
+    concurrencyLimit: 1,
+    resultBatchInterval: Duration.zero,
+    markLoading: false,
   );
 }
 
@@ -54,6 +57,7 @@ Future<void> runDelayTests(
   required void Function(List<Delay> delays) setDelays,
   int concurrencyLimit = delayTestConcurrencyLimit,
   Duration resultBatchInterval = const Duration(milliseconds: 16),
+  bool markLoading = true,
 }) async {
   final uniqueStates = <(String, String), SelectedProxyState>{};
   final loadingDelays = <Delay>[];
@@ -66,7 +70,7 @@ Future<void> runDelayTests(
     uniqueStates[(url, name)] = state;
     loadingDelays.add(Delay(url: url, name: name, value: 0));
   }
-  if (loadingDelays.isNotEmpty) {
+  if (markLoading && loadingDelays.isNotEmpty) {
     setDelays(loadingDelays);
   }
 

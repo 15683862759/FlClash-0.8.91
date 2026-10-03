@@ -21,9 +21,13 @@ class CoreManager extends ConsumerStatefulWidget {
 class _CoreContainerState extends ConsumerState<CoreManager>
     with CoreEventListener {
   late final DelayResultBatcher _delayResultBatcher;
+  late final CoreEventBatcher<Log> _logBatcher;
+  late final CoreEventBatcher<TrackerInfo> _requestBatcher;
 
   _CoreContainerState() {
     _delayResultBatcher = DelayResultBatcher(onFlush: _flushDelays);
+    _logBatcher = CoreEventBatcher<Log>(onFlush: _flushLogs);
+    _requestBatcher = CoreEventBatcher<TrackerInfo>(onFlush: _flushRequests);
   }
 
   @override
@@ -61,6 +65,8 @@ class _CoreContainerState extends ConsumerState<CoreManager>
   Future<void> dispose() async {
     coreEventManager.removeListener(this);
     _delayResultBatcher.dispose();
+    _logBatcher.dispose();
+    _requestBatcher.dispose();
     super.dispose();
   }
 
@@ -79,7 +85,7 @@ class _CoreContainerState extends ConsumerState<CoreManager>
 
   @override
   void onLog(Log log) {
-    ref.read(logsProvider.notifier).addLog(log);
+    _logBatcher.add(log);
     if (log.logLevel == LogLevel.error) {
       globalState.showNotifier(log.payload);
     }
@@ -88,8 +94,16 @@ class _CoreContainerState extends ConsumerState<CoreManager>
 
   @override
   void onRequest(TrackerInfo trackerInfo) async {
-    ref.read(requestsProvider.notifier).addRequest(trackerInfo);
+    _requestBatcher.add(trackerInfo);
     super.onRequest(trackerInfo);
+  }
+
+  void _flushLogs(List<Log> logs) {
+    ref.read(logsProvider.notifier).addLogs(logs);
+  }
+
+  void _flushRequests(List<TrackerInfo> requests) {
+    ref.read(requestsProvider.notifier).addRequests(requests);
   }
 
   @override

@@ -30,7 +30,15 @@ class Logs extends _$Logs with AutoDisposeNotifierMixin {
   }
 
   void addLog(Log value) {
-    this.value = state.copyWith()..add(value);
+    addLogs([value]);
+  }
+
+  void addLogs(Iterable<Log> values) {
+    final versionBefore = state.version;
+    state.addAll(values);
+    if (state.version != versionBefore) {
+      value = state.copyWith();
+    }
   }
 
   @override
@@ -52,7 +60,15 @@ class Requests extends _$Requests with AutoDisposeNotifierMixin {
   }
 
   void addRequest(TrackerInfo value) {
-    this.value = state.copyWith()..add(value);
+    addRequests([value]);
+  }
+
+  void addRequests(Iterable<TrackerInfo> values) {
+    final versionBefore = state.version;
+    state.addAll(values);
+    if (state.version != versionBefore) {
+      value = state.copyWith();
+    }
   }
 }
 
