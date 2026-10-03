@@ -17,6 +17,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import java.util.concurrent.ConcurrentHashMap
 
 class ActionResponseCollector(
     private val timeoutMillis: Long = ACTION_RESPONSE_TIMEOUT_MILLIS
@@ -32,12 +33,12 @@ class ActionResponseCollector(
         isSuccess: Boolean,
         onAck: (() -> Unit)? = null
     ) {
-        onAck?.invoke()
-
         val finished = synchronized(chunks) {
             chunks.add(result ?: byteArrayOf())
             isSuccess
         }
+
+        onAck?.invoke()
 
         if (finished) {
             val formatted = synchronized(chunks) {
@@ -54,6 +55,32 @@ class ActionResponseCollector(
             }
         } catch (error: TimeoutCancellationException) {
             Result.failure(error)
+        }
+    }
+}
+
+class EventResponseCollector(
+    private val onResult: ((result: String?) -> Unit)?
+) {
+    private val chunksById = ConcurrentHashMap<String, MutableList<ByteArray>>()
+
+    fun onEvent(
+        id: String,
+        data: ByteArray?,
+        isSuccess: Boolean,
+        onAck: (() -> Unit)? = null
+    ) {
+        val chunks = chunksById.compute(id) { _, existingChunks ->
+            (existingChunks ?: mutableListOf()).apply {
+                add(data ?: byteArrayOf())
+            }
+        } ?: return
+
+        onAck?.invoke()
+
+        if (isSuccess) {
+            onResult?.invoke(synchronized(chunks) { chunks.toList().formatString() })
+            chunksById.remove(id, chunks)
         }
     }
 }
@@ -107,7 +134,7 @@ object Service {
     suspend fun setEventListener(
         cb: ((result: String?) -> Unit)?
     ): Result<Unit> {
-        val results = HashMap<String, MutableList<ByteArray>>()
+        val collector = EventResponseCollector(cb)
         return delegate.useService {
             it.setEventListener(
                 when (cb != null) {
@@ -115,15 +142,7 @@ object Service {
                     override fun onEvent(
                         id: String, data: ByteArray?, isSuccess: Boolean, ack: IAckInterface?
                     ) {
-                        if (results[id] == null) {
-                            results[id] = mutableListOf()
-                        }
-                        results[id]?.add(data ?: byteArrayOf())
-                        ack?.onAck()
-                        if (isSuccess) {
-                            cb(results[id]?.formatString())
-                            results.remove(id)
-                        }
+                        collector.onEvent(id, data, isSuccess) { ack?.onAck() }
                     }
                 }
 

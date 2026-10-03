@@ -44,4 +44,16 @@ class ActionResponseCollectorTest {
 
         assertEquals(2, ackCount)
     }
+
+    @Test
+    fun `stores action chunk before acking it`() = runBlocking {
+        val collector = ActionResponseCollector(timeoutMillis = 1_000)
+        val ack: () -> Unit = {
+            collector.onResult("llo".toByteArray(), true)
+        }
+
+        collector.onResult("he".toByteArray(), false, ack)
+
+        assertEquals(Result.success("hello"), collector.await())
+    }
 }
