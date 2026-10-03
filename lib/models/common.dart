@@ -42,13 +42,14 @@ extension PackagesExt on List<Package> {
     required bool isFilterSystemApp,
     required bool isFilterNonInternetApp,
   }) {
+    final pinedPackageNames = pinedList.toSet();
     return where(
       (item) =>
           (isFilterSystemApp ? item.system == false : true) &&
           (isFilterNonInternetApp ? item.internet == true : true),
     ).sorted((a, b) {
-      final isSelectA = pinedList.contains(a.packageName);
-      final isSelectB = pinedList.contains(b.packageName);
+      final isSelectA = pinedPackageNames.contains(a.packageName);
+      final isSelectB = pinedPackageNames.contains(b.packageName);
 
       if (isSelectA != isSelectB) {
         return isSelectA ? -1 : 1;

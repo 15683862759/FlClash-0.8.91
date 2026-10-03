@@ -39,6 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.lang.ref.WeakReference
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
 
 class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware {
@@ -59,6 +60,8 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
     private var requestNotificationCallback: (() -> Unit)? = null
 
     private val packages = mutableListOf<Package>()
+
+    private val chinaPackageResultCache = ChinaPackageResultCache()
 
     private val skipPrefixList = listOf(
         "com.google",
@@ -241,8 +244,13 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private suspend fun getChinaPackageNames(): String {
         return withContext(Dispatchers.Default) {
-            val packages: List<String> =
-                getPackages().map { it.packageName }.filter { isChinaPackage(it) }
+            val packages: List<String> = getPackages()
+                .filter {
+                    chinaPackageResultCache.getOrPut(
+                        it.packageName, it.lastUpdateTime
+                    ) { isChinaPackage(it.packageName) }
+                }
+                .map { it.packageName }
             Gson().toJson(packages)
         }
     }
@@ -415,4 +423,27 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
         invokeRequestNotificationCallback()
         return true
     }
+}
+
+internal class ChinaPackageResultCache {
+    private data class CachedResult(
+        val lastUpdateTime: Long,
+        val isChinaPackage: Boolean,
+    )
+
+    private val results = ConcurrentHashMap<String, CachedResult>()
+
+    fun getOrPut(
+        packageName: String,
+        lastUpdateTime: Long,
+        compute: () -> Boolean
+    ): Boolean = checkNotNull(
+        results.compute(packageName) { _, cached ->
+            if (cached?.lastUpdateTime == lastUpdateTime) {
+                cached
+            } else {
+                CachedResult(lastUpdateTime, compute())
+            }
+        }
+    ).isChinaPackage
 }

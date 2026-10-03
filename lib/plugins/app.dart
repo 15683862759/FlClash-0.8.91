@@ -14,6 +14,7 @@ class App {
   static App? _instance;
   late MethodChannel methodChannel;
   Function()? onExit;
+  final Map<String, Future<ImageProvider?>> _packageIconFutures = {};
 
   App._internal() {
     methodChannel = const MethodChannel('$packageName/app');
@@ -42,12 +43,14 @@ class App {
     final packagesString = await methodChannel.invokeMethod<String>(
       'getPackages',
     );
-    return Isolate.run<List<Package>>(() {
+    final packages = await Isolate.run<List<Package>>(() {
       final List<dynamic> packagesRaw = packagesString != null
           ? json.decode(packagesString)
           : [];
       return packagesRaw.map((e) => Package.fromJson(e)).toSet().toList();
     });
+    _packageIconFutures.clear();
+    return packages;
   }
 
   Future<List<String>> getChinaPackageNames() async {
@@ -73,7 +76,14 @@ class App {
         false;
   }
 
-  Future<ImageProvider?> getPackageIcon(String packageName) async {
+  Future<ImageProvider?> getPackageIcon(String packageName) {
+    return _packageIconFutures.putIfAbsent(
+      packageName,
+      () => _loadPackageIcon(packageName),
+    );
+  }
+
+  Future<ImageProvider?> _loadPackageIcon(String packageName) async {
     final path = await methodChannel.invokeMethod<String>('getPackageIcon', {
       'packageName': packageName,
     });
